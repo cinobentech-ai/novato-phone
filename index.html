@@ -158,8 +158,8 @@ async function initAuth() {
 
 $("btn-save").onclick = async () => {
   try {
-    const url = $("sb-url").value.trim();
-    const key = $("sb-key").value.trim();
+    const url = $("url").value.trim();
+    const key = $("key").value.trim();
 
     if (!url || !key) {
       throw new Error("Enter your Supabase URL and anon key.");
