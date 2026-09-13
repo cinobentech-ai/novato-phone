@@ -41,104 +41,239 @@
     <input id="org" placeholder="New organization name" />
     <button id="btn-org">Create organization</button>
   </div>
-  <script>
-    const $ = (id) => document.getElementById(id);
-    const msg = (t, ok) => { const el = $("msg"); el.textContent = t || ""; el.className = ok ? "ok" : "err"; };
-    let sb = null;
-    const DEFAULT_URL = "https://buzmxatbmiqtiysmwcya.supabase.co";
-    function saved() { try { return JSON.parse(localStorage.getItem("novato.phone") || "null"); } catch { return null; } }
-    function redirectUrl() { return location.origin + location.pathname; }
-    function parseHash() {
-      if (!location.hash) return {};
-      return Object.fromEntries(new URLSearchParams(location.hash.replace(/^#/, "")));
-    }
-    function cleanHash() {
-      if (location.hash) history.replaceState({}, "", location.pathname + location.search);
-    }
-    function client() {
-      const c = saved();
-      if (!c || !c.url || !c.key) return null;
-      if (!sb) {
-        sb = window.supabase.createClient(c.url, c.key, {
-          auth: { detectSessionInUrl: true, persistSession: true, autoRefreshToken: true, flowType: "implicit" }
-        });
+    <script>
+const $ = (id) => document.getElementById(id);
+
+let sb = null;
+
+function msg(text, ok = false) {
+  const el = $("msg");
+  if (el) {
+    el.textContent = text;
+    el.style.color = ok ? "green" : "red";
+  }
+}
+
+function client() {
+  const url = $("sb-url").value.trim();
+  const key = $("sb-key").value.trim();
+
+  if (!url || !key) return null;
+
+  if (!sb) {
+    sb = supabase.createClient(url, key, {
+      auth: {
+        detectSessionInUrl: true,
+        persistSession: true,
+        autoRefreshToken: true
       }
-      return sb;
+    });
+  }
+
+  return sb;
+}
+
+function cleanAuthUrl() {
+  const url = new URL(window.location.href);
+
+  if (
+    url.hash.includes("access_token") ||
+    url.hash.includes("refresh_token") ||
+    url.hash.includes("type=magiclink")
+  ) {
+    window.history.replaceState(
+      {},
+      document.title,
+      url.origin + url.pathname + url.search
+    );
+  }
+}
+
+async function loadApp(session) {
+  if (!session) {
+    $("box-app").classList.add("hidden");
+    return;
+  }
+
+  $("box-app").classList.remove("hidden");
+
+  if ($("who")) {
+    $("who").textContent = session.user.email || "";
+  }
+
+  const { data, error } = await sb
+    .from("organization_members")
+    .select("organization_id, role, organizations(name)")
+    .eq("user_id", session.user.id);
+
+  if (error) {
+    msg(error.message);
+    return;
+  }
+
+  console.log("Organizations:", data);
+}
+
+async function refresh() {
+  const c = client();
+  if (!c) return;
+
+  const { data, error } = await c.auth.getSession();
+
+  if (error) {
+    msg(error.message);
+    return;
+  }
+
+  if (data.session) {
+    cleanAuthUrl();
+    await loadApp(data.session);
+  }
+}
+
+async function initAuth() {
+  const c = client();
+  if (!c) return;
+
+  c.auth.onAuthStateChange(async (event, session) => {
+    console.log("Auth event:", event);
+
+    if (event === "SIGNED_IN" && session) {
+      cleanAuthUrl();
+
+      setTimeout(async () => {
+        await loadApp(session);
+        msg("Logged in successfully.", true);
+      }, 0);
     }
-    async function takeHashSession() {
-      const h = parseHash();
-      if (h.error || h.error_description) { cleanHash(); throw new Error(h.error_description || h.error); }
-      if (!h.access_token || !h.refresh_token) return null;
-      const mark = h.access_token.slice(-12);
-      if (sessionStorage.getItem("novato.auth.hash") === mark) {
-        cleanHash();
-        return client() ? (await sb.auth.getSession()).data.session : null;
-      }
-      if (!client()) return null;
-      const { data, error } = await sb.auth.setSession({ access_token: h.access_token, refresh_token: h.refresh_token });
-      if (error) { cleanHash(); throw error; }
-      sessionStorage.setItem("novato.auth.hash", mark);
-      cleanHash();
-      return data.session;
-    }
-    async function refresh() {
-      const c = saved();
-      $("url").value = (c && c.url) || DEFAULT_URL;
-      if (c && c.key) $("key").value = c.key;
-      if (!client()) {
-        $("box-auth").classList.add("hidden");
-        $("box-app").classList.add("hidden");
-        if (parseHash().access_token) msg("Paste your anon key, tap Save and finish login.", false);
-        return;
-      }
-      $("box-auth").classList.remove("hidden");
-      let session = null;
-      try { session = await takeHashSession(); } catch (e) { msg(e.message); }
-      if (!session) session = (await sb.auth.getSession()).data.session;
-      if (!session) { $("box-app").classList.add("hidden"); return; }
-      $("box-app").classList.remove("hidden");
-      $("who").textContent = session.user.email;
-      const orgs = await sb.from("organization_members").select("role, organizations(name,id)").eq("status", "active");
-      $("orgs").textContent = (orgs.data || []).map((r) => (r.organizations && r.organizations.name) + " (" + r.role + ")").join(" · ") || "No organization yet.";
-      msg("Logged in.", true);
-    }
-    $("btn-save").onclick = async () => {
-      sb = null;
-      localStorage.setItem("novato.phone", JSON.stringify({ url: $("url").value.trim(), key: $("key").value.trim() }));
-      msg("Saved.", true);
-      await refresh();
-    };
-    $("btn-link").onclick = async () => {
-      try {
-        if (!client()) throw new Error("Save URL and anon key first.");
-        const { error } = await sb.auth.signInWithOtp({ email: $("email").value.trim(), options: { emailRedirectTo: redirectUrl(), shouldCreateUser: true } });
-        if (error) throw error;
-        msg("Check your email.", true);
-      } catch (e) { msg(e.message); }
-    };
-    $("btn-code").onclick = async () => {
-      try {
-        if (!client()) throw new Error("Save the key first.");
-        const { error } = await sb.auth.verifyOtp({ email: $("email").value.trim(), token: $("code").value.trim(), type: "email" });
-        if (error) throw error;
-        await refresh();
-      } catch (e) { msg(e.message); }
-    };
-    $("btn-out").onclick = async () => {
-      if (client()) await sb.auth.signOut();
-      sessionStorage.removeItem("novato.auth.hash");
+
+    if (event === "SIGNED_OUT") {
       $("box-app").classList.add("hidden");
       msg("Signed out.", true);
-    };
-    $("btn-org").onclick = async () => {
-      try {
-        const { data, error } = await sb.rpc("create_organization", { p_name: $("org").value.trim() });
-        if (error) throw error;
-        msg("Created " + data.name, true);
-        await refresh();
-      } catch (e) { msg(e.message); }
-    };
-    refresh();
-  </script>
+    }
+  });
+
+  await refresh();
+}
+
+$("btn-save").onclick = async () => {
+  try {
+    const url = $("sb-url").value.trim();
+    const key = $("sb-key").value.trim();
+
+    if (!url || !key) {
+      throw new Error("Enter your Supabase URL and anon key.");
+    }
+
+    localStorage.setItem("novato.sb.url", url);
+    localStorage.setItem("novato.sb.key", key);
+
+    sb = null;
+
+    msg("Saved.", true);
+    await initAuth();
+  } catch (e) {
+    msg(e.message);
+  }
+};
+
+$("btn-link").onclick = async () => {
+  try {
+    if (!client()) {
+      throw new Error("Save your Supabase settings first.");
+    }
+
+    const email = $("email").value.trim();
+
+    if (!email) {
+      throw new Error("Enter your email.");
+    }
+
+    const redirectTo =
+      window.location.origin + window.location.pathname;
+
+    const { error } = await sb.auth.signInWithOtp({
+      email,
+      options: {
+        emailRedirectTo: redirectTo,
+        shouldCreateUser: true
+      }
+    });
+
+    if (error) throw error;
+
+    msg("Check your email.", true);
+  } catch (e) {
+    msg(e.message);
+  }
+};
+
+$("btn-code").onclick = async () => {
+  try {
+    if (!client()) {
+      throw new Error("Save your Supabase settings first.");
+    }
+
+    const email = $("email").value.trim();
+    const token = $("code").value.trim();
+
+    const { error } = await sb.auth.verifyOtp({
+      email,
+      token,
+      type: "email"
+    });
+
+    if (error) throw error;
+
+    await refresh();
+  } catch (e) {
+    msg(e.message);
+  }
+};
+
+$("btn-out").onclick = async () => {
+  if (client()) {
+    await sb.auth.signOut();
+  }
+
+  sessionStorage.removeItem("novato.auth.hint");
+  $("box-app").classList.add("hidden");
+  msg("Signed out.", true);
+};
+
+$("btn-org").onclick = async () => {
+  try {
+    if (!client()) {
+      throw new Error("Save your Supabase settings first.");
+    }
+
+    const name = $("org-name").value.trim();
+
+    if (!name) {
+      throw new Error("Enter an organization name.");
+    }
+
+    const { data, error } = await sb.rpc(
+      "create_organization",
+      { p_name: name }
+    );
+
+    if (error) throw error;
+
+    msg("Created " + (data?.name || name), true);
+    await refresh();
+  } catch (e) {
+    msg(e.message);
+  }
+};
+
+const savedUrl = localStorage.getItem("novato.sb.url");
+const savedKey = localStorage.getItem("novato.sb.key");
+
+if (savedUrl) $("sb-url").value = savedUrl;
+if (savedKey) $("sb-key").value = savedKey;
+
+initAuth().catch((e) => msg(e.message));
+</script>
 </body>
 </html>
