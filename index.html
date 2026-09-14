@@ -313,7 +313,8 @@
       return;
     }
 
-    $("box-app").classList.remove("hidden");
+$("box-setup").classList.add("hidden");
+$("box-auth").classList.add("hidden");
 
     $("who").textContent =
       session.user.email ||
@@ -329,20 +330,23 @@
       return;
     }
 
-    const {
-      data,
-      error
-    } = await sb
-      .from("organization_members")
-      .select(`
-        role,
-        organization_id,
-        organizations (
-          id,
-          name
-        )
-      `)
-      .eq("status", "active");
+    const { data: sessionData } = await sb.auth.getSession();
+
+const {
+  data,
+  error
+} = await sb
+  .from("organization_members")
+  .select(`
+    role,
+    organization_id,
+    organizations (
+      id,
+      name
+    )
+  `)
+  .eq("user_id", sessionData.session.user.id)
+  .eq("status", "active");
 
     if (error) {
       $("orgs").textContent = error.message;
