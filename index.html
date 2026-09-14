@@ -267,11 +267,11 @@ $("btn-org").onclick = async () => {
   }
 };
 
-const savedUrl = localStorage.getItem("novato.sb.url");
-const savedKey = localStorage.getItem("novato.sb.key");
+const url = $("url").value.trim();
+const key = $("key").value.trim();
 
-if (savedUrl) $("sb-url").value = savedUrl;
-if (savedKey) $("sb-key").value = savedKey;
+if (savedUrl) $("url").value = savedUrl;
+if (savedKey) $("key").value = savedKey;
 
 initAuth().catch((e) => msg(e.message));
 </script>
