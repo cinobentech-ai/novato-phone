@@ -243,11 +243,13 @@ $("btn-out").onclick = async () => {
 
 $("btn-org").onclick = async () => {
   try {
-    if (!client()) {
+    client();
+
+    if (!sb) {
       throw new Error("Save your Supabase settings first.");
     }
 
-    const name = $("org-name").value.trim();
+    const name = $("org").value.trim();
 
     if (!name) {
       throw new Error("Enter an organization name.");
@@ -267,11 +269,12 @@ $("btn-org").onclick = async () => {
   }
 };
 
-const url = $("url").value.trim();
-const key = $("key").value.trim()
+const savedConfig = saved();
 
-if (savedUrl) $("url").value = savedUrl;
-if (savedKey) $("key").value = savedKey;
+if (savedConfig) {
+  $("url").value = savedConfig.url || "";
+  $("key").value = savedConfig.key || "";
+}
 
 initAuth().catch((e) => msg(e.message));
 </script>
