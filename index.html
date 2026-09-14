@@ -55,9 +55,8 @@ function msg(text, ok = false) {
 }
 
 function client() {
-  const url = $("sb-url").value.trim();
-  const key = $("sb-key").value.trim();
-
+  const url = $("url").value.trim();
+const key = $("key").value.trim();
   if (!url || !key) return null;
 
   if (!sb) {
