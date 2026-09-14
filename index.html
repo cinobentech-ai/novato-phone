@@ -94,7 +94,8 @@ async function loadApp(session) {
     $("box-app").classList.add("hidden");
     return;
   }
-
+  $("box-setup").classList.add("hidden");
+  $("box-auth").classList.add("hidden");
   $("box-app").classList.remove("hidden");
 
   if ($("who")) {
