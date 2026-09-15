@@ -1,682 +1,193 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Novato</title>
-
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
   <style>
-    * {
-      box-sizing: border-box;
-    }
-
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      background: #0b1020;
-      color: #ffffff;
-      min-height: 100vh;
-      padding: 20px;
-    }
-
-    .container {
-      width: 100%;
-      max-width: 520px;
-      margin: 0 auto;
-    }
-
-    h1 {
-      margin-bottom: 5px;
-      font-size: 32px;
-    }
-
-    .subtitle {
-      color: #aeb7cc;
-      margin-bottom: 25px;
-    }
-
-    .card {
-      background: #151c30;
-      border: 1px solid #28314a;
-      border-radius: 14px;
-      padding: 20px;
-      margin-bottom: 18px;
-    }
-
-    h2 {
-      margin-top: 0;
-      font-size: 20px;
-    }
-
-    label {
-      display: block;
-      margin-top: 14px;
-      margin-bottom: 6px;
-      color: #cbd3e6;
-      font-size: 14px;
-    }
-
-    input {
-      width: 100%;
-      padding: 13px;
-      border-radius: 9px;
-      border: 1px solid #39435e;
-      background: #0d1426;
-      color: #ffffff;
-      font-size: 15px;
-      outline: none;
-    }
-
-    input:focus {
-      border-color: #7c8cff;
-    }
-
-    button {
-      width: 100%;
-      padding: 13px;
-      margin-top: 14px;
-      border: 0;
-      border-radius: 9px;
-      background: #6d7cff;
-      color: #ffffff;
-      font-size: 15px;
-      font-weight: bold;
-      cursor: pointer;
-    }
-
-    button:hover {
-      opacity: 0.9;
-    }
-
-    .secondary {
-      background: #29334d;
-    }
-
-    .hidden {
-      display: none;
-    }
-
-    #msg {
-      margin-top: 15px;
-      padding: 10px;
-      border-radius: 8px;
-      display: none;
-    }
-
-    #msg.ok {
-      display: block;
-      background: #123d2c;
-      color: #7ff0b7;
-    }
-
-    #msg.err {
-      display: block;
-      background: #421c24;
-      color: #ff9daa;
-    }
-
-    .user {
-      color: #b9c3d9;
-      word-break: break-word;
-    }
-
-    .org-list {
-      color: #dbe2f2;
-      line-height: 1.6;
-    }
+    body { font-family: system-ui, sans-serif; background: #0b1530; color: #eef3ff; margin: 0; padding: 20px; }
+    input, button { width: 100%; box-sizing: border-box; padding: 12px; margin: 6px 0; border-radius: 10px; border: 0; font-size: 16px; }
+    button { background: #3dd6c6; font-weight: 700; }
+    .card { background: #132044; padding: 16px; border-radius: 16px; margin-bottom: 12px; }
+    .muted { color: #9bb0d0; font-size: 14px; }
+    .err { color: #ff8a8a; }
+    .ok { color: #7dffc0; }
+    .hidden { display: none; }
   </style>
 </head>
-
 <body>
-
-<div class="container">
-
   <h1>Novato</h1>
-  <div class="subtitle">Simple group finance and governance.</div>
-
-  <!-- SUPABASE CONNECTION -->
-  <div class="card">
-
-    <h2>1. Connect project</h2>
-
-    <label for="url">Supabase URL</label>
-    <input
-      id="url"
-      type="text"
-      placeholder="https://xxxx.supabase.co"
-    >
-
-    <label for="key">Supabase anon public key</label>
-    <input
-      id="key"
-      type="password"
-      placeholder="eyJ..."
-    >
-
-    <button id="btn-save">
-      Save project settings
-    </button>
-
+  <div id="msg" class="muted"></div>
+  <div class="card hidden" id="box-auth">
+    <b>Email login</b>
+    <input id="email" type="email" placeholder="you@email.com" />
+    <button id="btn-link">Send login email</button>
+    <p class="muted">Check your email and tap the link — it will bring you back here signed in. Open it in the same browser you're using now (avoid an in-app mail browser if possible).</p>
+    <button id="btn-out" type="button">Sign out</button>
   </div>
-
-  <!-- AUTH -->
-  <div id="box-auth" class="card hidden">
-
-    <h2>2. Email login</h2>
-
-    <label for="email">Email address</label>
-    <input
-      id="email"
-      type="email"
-      placeholder="you@example.com"
-    >
-
-    <button id="btn-link">
-      Send magic link
-    </button>
-
-    <label for="code">Or enter email OTP</label>
-    <input
-      id="code"
-      type="text"
-      placeholder="123456"
-      inputmode="numeric"
-    >
-
-    <button id="btn-code" class="secondary">
-      Verify OTP
-    </button>
-
+  <div class="card hidden" id="box-app">
+    <b>You are in</b>
+    <div id="who"></div>
+    <div id="orgs" class="muted"></div>
+    <input id="org" placeholder="New organization name" />
+    <button id="btn-org">Create organization</button>
   </div>
+  <script>
+const $ = (id) => document.getElementById(id);
 
-  <!-- APP -->
-  <div id="box-app" class="card hidden">
+// Public anon key — safe to embed client-side, protected by Row Level Security.
+const SUPABASE_URL = "https://buzmxatbmiqtiysmwcya.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ1em14YXRibWlxdGl5c213Y3lhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkyNTEwODcsImV4cCI6MjEwNDgyNzA4N30.f3a_skPqMTF5rHhg33LE8KNhf53kTJ497Kb3n0FjEOc";
 
-    <h2>3. You are in</h2>
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    detectSessionInUrl: true,
+    persistSession: true,
+    autoRefreshToken: true
+  }
+});
 
-    <div class="user">
-      Logged in as:
-      <strong id="who"></strong>
-    </div>
-
-    <br>
-
-    <h2>Your organizations</h2>
-
-    <div id="orgs" class="org-list">
-      Loading...
-    </div>
-
-    <label for="org">Create organization</label>
-
-    <input
-      id="org"
-      type="text"
-      placeholder="Organization name"
-    >
-
-    <button id="btn-org">
-      Create organization
-    </button>
-
-    <button id="btn-logout" class="secondary">
-      Sign out
-    </button>
-
-  </div>
-
-  <div id="msg"></div>
-
-</div>
-
-<script>
-  const $ = (id) => document.getElementById(id);
-
-  let sb = null;
-
-  function msg(text, success = false) {
-    const el = $("msg");
-
+function msg(text, ok = false) {
+  const el = $("msg");
+  if (el) {
     el.textContent = text;
-    el.className = success ? "ok" : "err";
+    el.className = ok ? "ok" : "err";
   }
+}
 
-  function getSavedSettings() {
-    try {
-      return JSON.parse(
-        localStorage.getItem("novato.supabase") || "null"
-      );
-    } catch {
-      return null;
-    }
-  }
+function cleanAuthUrl() {
+  const url = new URL(window.location.href);
 
-  function client() {
-    const saved = getSavedSettings();
-
-    if (!saved || !saved.url || !saved.key) {
-      sb = null;
-      return null;
-    }
-
-    sb = window.supabase.createClient(
-      saved.url,
-      saved.key,
-      {
-        auth: {
-          detectSessionInUrl: true,
-          persistSession: true,
-          autoRefreshToken: true
-        }
-      }
+  if (
+    url.hash.includes("access_token") ||
+    url.hash.includes("refresh_token") ||
+    url.hash.includes("type=magiclink")
+  ) {
+    window.history.replaceState(
+      {},
+      document.title,
+      url.origin + url.pathname + url.search
     );
+  }
+}
 
-    return sb;
+async function loadApp(session) {
+  if (!session) {
+    $("box-app").classList.add("hidden");
+    return;
+  }
+  $("box-auth").classList.add("hidden");
+  $("box-app").classList.remove("hidden");
+
+  if ($("who")) {
+    $("who").textContent = session.user.email || "";
   }
 
-  async function refresh() {
+  const { data, error } = await sb
+    .from("organization_members")
+    .select("organization_id, role, organizations(name)")
+    .eq("user_id", session.user.id);
 
-    const saved = getSavedSettings();
+  if (error) {
+    msg(error.message);
+    return;
+  }
 
-    if (saved) {
-      $("url").value = saved.url || "";
-      $("key").value = saved.key || "";
-    }
+  $("orgs").textContent =
+    (data || [])
+      .map((r) => (r.organizations && r.organizations.name) + " (" + r.role + ")")
+      .join(" · ") || "No organization yet.";
+}
 
-    const supabase = client();
+async function refresh() {
+  const { data, error } = await sb.auth.getSession();
 
-    if (!supabase) {
-      $("box-auth").classList.add("hidden");
-      $("box-app").classList.add("hidden");
-      return;
-    }
+  if (error) {
+    msg(error.message);
+    return;
+  }
 
+  if (data.session) {
+    cleanAuthUrl();
+    await loadApp(data.session);
+  } else {
     $("box-auth").classList.remove("hidden");
+  }
+}
 
-    const {
-      data,
-      error
-    } = await supabase.auth.getSession();
+sb.auth.onAuthStateChange(async (event, session) => {
+  console.log("Auth event:", event);
 
-    if (error) {
-      msg(error.message);
-      return;
-    }
+  if (event === "SIGNED_IN" && session) {
+    cleanAuthUrl();
 
-    const session = data.session;
-
-    if (!session) {
-      $("box-app").classList.add("hidden");
-      return;
-    }
-
-$("box-setup").classList.add("hidden");
-$("box-auth").classList.add("hidden");
-
-    $("who").textContent =
-      session.user.email ||
-      session.user.phone ||
-      session.user.id;
-
-    await loadOrganizations();
+    setTimeout(async () => {
+      await loadApp(session);
+      msg("Logged in successfully.", true);
+    }, 0);
   }
 
-  async function loadOrganizations() {
-
-    if (!sb) {
-      return;
-    }
-
-    const { data: sessionData } = await sb.auth.getSession();
-
-const {
-  data,
-  error
-} = await sb
-  .from("organization_members")
-  .select(`
-    role,
-    organization_id,
-    organizations (
-      id,
-      name
-    )
-  `)
-  .eq("user_id", sessionData.session.user.id)
-  .eq("status", "active");
-
-    if (error) {
-      $("orgs").textContent = error.message;
-      return;
-    }
-
-    if (!data || data.length === 0) {
-      $("orgs").textContent = "No organization yet.";
-      return;
-    }
-
-    $("orgs").innerHTML = data
-      .map((row) => {
-        const organization =
-          row.organizations;
-
-        if (!organization) {
-          return "";
-        }
-
-        return `
-          <div>
-            <strong>${escapeHtml(organization.name)}</strong>
-            — ${escapeHtml(row.role)}
-          </div>
-        `;
-      })
-      .join("");
+  if (event === "SIGNED_OUT") {
+    $("box-app").classList.add("hidden");
+    $("box-auth").classList.remove("hidden");
+    msg("Signed out.", true);
   }
+});
 
-  function escapeHtml(value) {
+$("btn-link").onclick = async () => {
+  try {
+    const email = $("email").value.trim();
 
-    return String(value)
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;")
-      .replaceAll('"', "&quot;")
-      .replaceAll("'", "&#039;");
+    if (!email) {
+      throw new Error("Enter your email.");
+    }
+
+    const redirectTo = window.location.origin + window.location.pathname;
+
+    const { error } = await sb.auth.signInWithOtp({
+      email,
+      options: {
+        emailRedirectTo: redirectTo,
+        shouldCreateUser: true
+      }
+    });
+
+    if (error) throw error;
+
+    msg("Check your email.", true);
+  } catch (e) {
+    msg(e.message);
   }
+};
 
-  $("btn-save").onclick = async () => {
+$("btn-out").onclick = async () => {
+  await sb.auth.signOut();
+  $("box-app").classList.add("hidden");
+  $("box-auth").classList.remove("hidden");
+  msg("Signed out.", true);
+};
 
-    const url = $("url").value.trim();
-    const key = $("key").value.trim();
+$("btn-org").onclick = async () => {
+  try {
+    const name = $("org").value.trim();
 
-    if (!url) {
-      msg("Enter your Supabase URL.");
-      return;
+    if (!name) {
+      throw new Error("Enter an organization name.");
     }
 
-    if (!key) {
-      msg("Enter your Supabase anon public key.");
-      return;
-    }
+    const { data, error } = await sb.rpc("create_organization", { p_name: name });
 
-    if (!url.startsWith("https://")) {
-      msg("Supabase URL must start with https://");
-      return;
-    }
+    if (error) throw error;
 
-    localStorage.setItem(
-      "novato.supabase",
-      JSON.stringify({
-        url,
-        key
-      })
-    );
-
-    msg(
-      "Supabase project settings saved on this device.",
-      true
-    );
-
+    msg("Created " + (data?.name || name), true);
     await refresh();
-  };
+  } catch (e) {
+    msg(e.message);
+  }
+};
 
-  $("btn-link").onclick = async () => {
-
-    try {
-
-      const supabase = client();
-
-      if (!supabase) {
-        throw new Error(
-          "Save your Supabase settings first."
-        );
-      }
-
-      const email =
-        $("email").value.trim();
-
-      if (!email) {
-        throw new Error(
-          "Enter your email address."
-        );
-      }
-
-      const redirectUrl =
-        window.location.origin +
-        window.location.pathname;
-
-      const {
-        error
-      } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          emailRedirectTo: redirectUrl,
-          shouldCreateUser: true
-        }
-      });
-
-      if (error) {
-        throw error;
-      }
-
-      msg(
-        "Check your email for the login link.",
-        true
-      );
-
-    } catch (error) {
-
-      msg(
-        error.message ||
-        "Unable to send login link."
-      );
-    }
-  };
-
-  $("btn-code").onclick = async () => {
-
-    try {
-
-      const supabase = client();
-
-      if (!supabase) {
-        throw new Error(
-          "Save your Supabase settings first."
-        );
-      }
-
-      const email =
-        $("email").value.trim();
-
-      const code =
-        $("code").value.trim();
-
-      if (!email) {
-        throw new Error(
-          "Enter your email address."
-        );
-      }
-
-      if (!code) {
-        throw new Error(
-          "Enter the OTP code."
-        );
-      }
-
-      const {
-        error
-      } = await supabase.auth.verifyOtp({
-        email,
-        token: code,
-        type: "email"
-      });
-
-      if (error) {
-        throw error;
-      }
-
-      msg(
-        "Logged in successfully.",
-        true
-      );
-
-      await refresh();
-
-    } catch (error) {
-
-      msg(
-        error.message ||
-        "Unable to verify OTP."
-      );
-    }
-  };
-
-  $("btn-org").onclick = async () => {
-
-    try {
-
-      const supabase = client();
-
-      if (!supabase) {
-        throw new Error(
-          "Save your Supabase settings first."
-        );
-      }
-
-      const {
-        data: sessionData
-      } = await supabase.auth.getSession();
-
-      if (!sessionData.session) {
-        throw new Error(
-          "Please log in first."
-        );
-      }
-
-      const name =
-        $("org").value.trim();
-
-      if (!name) {
-        throw new Error(
-          "Enter an organization name."
-        );
-      }
-
-      const {
-        data,
-        error
-      } = await supabase.rpc(
-        "create_organization",
-        {
-          p_name: name
-        }
-      );
-
-      if (error) {
-        throw error;
-      }
-
-      msg(
-        "Organization created successfully.",
-        true
-      );
-
-      $("org").value = "";
-
-      await refresh();
-
-    } catch (error) {
-
-      msg(
-        error.message ||
-        "Unable to create organization."
-      );
-    }
-  };
-
-  $("btn-logout").onclick = async () => {
-
-    try {
-
-      if (!sb) {
-        return;
-      }
-
-      const {
-        error
-      } = await sb.auth.signOut();
-
-      if (error) {
-        throw error;
-      }
-
-      msg(
-        "Signed out.",
-        true
-      );
-
-      await refresh();
-
-    } catch (error) {
-
-      msg(
-        error.message ||
-        "Unable to sign out."
-      );
-    }
-  };
-
-  // Handle magic-link / OAuth callback
-  window.addEventListener(
-    "load",
-    async () => {
-
-      try {
-
-        const saved =
-          getSavedSettings();
-
-        if (!saved) {
-          return;
-        }
-
-        const supabase =
-          client();
-
-        if (!supabase) {
-          return;
-        }
-
-        const {
-          data,
-          error
-        } = await supabase.auth.getSession();
-
-        if (error) {
-          console.error(error);
-          return;
-        }
-
-        if (data.session) {
-          await refresh();
-        }
-
-      } catch (error) {
-
-        console.error(
-          "Novato startup error:",
-          error
-        );
-      }
-    }
-  );
-
-  // Start application
-  refresh();
+refresh().catch((e) => msg(e.message));
 </script>
-
 </body>
 </html>
