@@ -322,20 +322,35 @@ async function loadFinance() {
     $("org-balance-detail").textContent = "In " + fmt(bal.money_in) + " · Out " + fmt(bal.money_out);
   }
 
-  // Members (for display names and the transaction form)
+  // Members (for display names and the transaction form).
+  // organization_members.user_id has no declared FK to profiles, so PostgREST
+  // can't auto-embed the join — fetch separately and join client-side instead.
   const { data: members, error: memErr } = await sb
     .from("organization_members")
-    .select("id, user_id, role, profiles(full_name)")
+    .select("id, user_id, role")
     .eq("organization_id", state.orgId)
     .eq("status", "active");
 
   if (memErr) {
     msg(memErr.message);
   } else {
+    const userIds = (members || []).map((m) => m.user_id);
+    let profileById = {};
+    if (userIds.length) {
+      const { data: profiles, error: profErr } = await sb
+        .from("profiles")
+        .select("id, full_name")
+        .in("id", userIds);
+      if (profErr) {
+        msg(profErr.message);
+      } else {
+        (profiles || []).forEach((p) => { profileById[p.id] = p.full_name; });
+      }
+    }
     state.members = (members || []).map((m) => ({
       id: m.id,
       user_id: m.user_id,
-      name: (m.profiles && m.profiles.full_name) || "Member"
+      name: profileById[m.user_id] || "Member"
     }));
   }
 
