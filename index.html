@@ -7,7 +7,8 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     body { font-family: system-ui, sans-serif; background: #0b1530; color: #eef3ff; margin: 0; padding: 20px; }
-    input, select, button { width: 100%; box-sizing: border-box; padding: 12px; margin: 6px 0; border-radius: 10px; border: 0; font-size: 16px; }
+    input, select, textarea, button { width: 100%; box-sizing: border-box; padding: 12px; margin: 6px 0; border-radius: 10px; border: 0; font-size: 16px; font-family: inherit; }
+    textarea { resize: vertical; min-height: 60px; }
     button { background: #3dd6c6; font-weight: 700; color: #06231f; }
     button.secondary { background: #1c2c52; color: #eef3ff; }
     button.danger { background: #ff8a8a; color: #2a0808; }
@@ -17,7 +18,7 @@
     .err { color: #ff8a8a; }
     .ok { color: #7dffc0; }
     .hidden { display: none; }
-    .row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #1c2c52; gap: 8px; }
+    .row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #1c2c52; gap: 8px; flex-wrap: wrap; }
     .row:last-child { border-bottom: none; }
     .row .main { flex: 1; min-width: 0; }
     .row .name { font-weight: 600; }
@@ -26,14 +27,18 @@
     .amount.in { color: #7dffc0; }
     .amount.out { color: #ff8a8a; }
     .pill { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px; background: #1c2c52; color: #9bb0d0; margin-left: 6px; }
-    .pill.active { background: #16412f; color: #7dffc0; }
-    .pill.inactive { background: #401616; color: #ff8a8a; }
-    .actions { display: flex; gap: 6px; margin-top: 4px; }
-    .actions button { width: auto; margin: 0; padding: 8px 12px; font-size: 13px; }
+    .pill.active, .pill.confirmed, .pill.attended, .pill.approved, .pill.done, .pill.completed { background: #16412f; color: #7dffc0; }
+    .pill.inactive, .pill.absent, .pill.rejected, .pill.cancelled { background: #401616; color: #ff8a8a; }
+    .pill.scheduled, .pill.proposed, .pill.open, .pill.invited, .pill.in_progress { background: #2c2c52; color: #b7c3ff; }
+    .actions { display: flex; gap: 6px; margin-top: 4px; flex-wrap: wrap; }
+    .actions button, .actions select { width: auto; margin: 0; padding: 8px 12px; font-size: 13px; }
     h1 { margin-bottom: 4px; }
     h2 { font-size: 16px; margin: 0 0 8px; }
-    h3 { font-size: 14px; margin: 0 0 4px; }
+    h3 { font-size: 14px; margin: 12px 0 4px; color: #b7c3ff; text-transform: uppercase; letter-spacing: 0.04em; }
     .balance-big { font-size: 28px; font-weight: 800; }
+    .tabbar { display: flex; gap: 8px; margin-bottom: 12px; }
+    .tabbar button { width: auto; flex: 1; }
+    .section-divider { border: none; border-top: 1px solid #1c2c52; margin: 16px 0; }
   </style>
 </head>
 <body>
@@ -57,68 +62,160 @@
     <button id="btn-out2" type="button" class="secondary">Sign out</button>
   </div>
 
-  <!-- ORG BALANCE -->
-  <div class="card hidden" id="box-org-balance">
-    <h2 id="org-title">Organization</h2>
-    <div class="muted">Total balance</div>
-    <div class="balance-big" id="org-balance-amt">—</div>
-    <div class="muted" id="org-balance-detail"></div>
+  <!-- NAV TABS (shown once an org is loaded) -->
+  <div class="tabbar hidden" id="tabbar">
+    <button id="tab-finance" class="secondary">Finance</button>
+    <button id="tab-governance" class="secondary">Governance</button>
   </div>
 
-  <!-- FUNDS -->
-  <div class="card hidden" id="box-funds">
-    <h2>Funds</h2>
-    <div id="funds-list" class="muted">No funds yet.</div>
-    <div id="create-fund-form" class="hidden">
-      <h3>Create fund</h3>
-      <input id="fund-name" placeholder="Fund name" />
-      <input id="fund-purpose" placeholder="Purpose (optional)" />
-      <button id="btn-create-fund">Create fund</button>
+  <!-- ============ FINANCE (Sprint 2 — unchanged) ============ -->
+  <div id="finance-section">
+    <div class="card hidden" id="box-org-balance">
+      <h2 id="org-title">Organization</h2>
+      <div class="muted">Total balance</div>
+      <div class="balance-big" id="org-balance-amt">—</div>
+      <div class="muted" id="org-balance-detail"></div>
+    </div>
+
+    <div class="card hidden" id="box-funds">
+      <h2>Funds</h2>
+      <div id="funds-list" class="muted">No funds yet.</div>
+      <div id="create-fund-form" class="hidden">
+        <h3>Create fund</h3>
+        <input id="fund-name" placeholder="Fund name" />
+        <input id="fund-purpose" placeholder="Purpose (optional)" />
+        <button id="btn-create-fund">Create fund</button>
+      </div>
+    </div>
+
+    <div class="card hidden" id="box-fund">
+      <h2 id="fund-title">Fund</h2>
+      <div class="muted">Fund balance</div>
+      <div class="balance-big" id="fund-balance-amt">—</div>
+      <button id="btn-close-fund" type="button" class="secondary">Close fund view</button>
+
+      <h3>Contribution schedules</h3>
+      <div id="schedules-list" class="muted">No schedules yet.</div>
+      <div id="create-schedule-form" class="hidden">
+        <select id="sched-frequency">
+          <option value="weekly">Weekly</option>
+          <option value="monthly" selected>Monthly</option>
+          <option value="one_off">One-off</option>
+          <option value="custom">Custom</option>
+        </select>
+        <input id="sched-amount" type="number" step="0.01" min="0.01" placeholder="Amount" />
+        <button id="btn-create-schedule">Add schedule</button>
+      </div>
+
+      <h3>Ledger</h3>
+      <div id="ledger-list" class="muted">No transactions yet.</div>
+      <div id="post-txn-form" class="hidden">
+        <h3>Post transaction</h3>
+        <select id="txn-type">
+          <option value="contribution">Contribution</option>
+          <option value="income">Income</option>
+          <option value="expense">Expense</option>
+          <option value="adjustment">Adjustment</option>
+        </select>
+        <select id="txn-direction">
+          <option value="in">Money in</option>
+          <option value="out">Money out</option>
+        </select>
+        <input id="txn-amount" type="number" step="0.01" min="0.01" placeholder="Amount" />
+        <input id="txn-date" type="date" />
+        <select id="txn-member">
+          <option value="">No specific member</option>
+        </select>
+        <input id="txn-purpose" placeholder="Purpose (optional)" />
+        <button id="btn-post-txn">Post transaction</button>
+      </div>
     </div>
   </div>
 
-  <!-- SELECTED FUND -->
-  <div class="card hidden" id="box-fund">
-    <h2 id="fund-title">Fund</h2>
-    <div class="muted">Fund balance</div>
-    <div class="balance-big" id="fund-balance-amt">—</div>
-    <button id="btn-close-fund" type="button" class="secondary">Close fund view</button>
+  <!-- ============ GOVERNANCE (Sprint 3.2 — new) ============ -->
+  <div id="governance-section" class="hidden">
 
-    <h3 style="margin-top:16px">Contribution schedules</h3>
-    <div id="schedules-list" class="muted">No schedules yet.</div>
-    <div id="create-schedule-form" class="hidden">
-      <select id="sched-frequency">
-        <option value="weekly">Weekly</option>
-        <option value="monthly" selected>Monthly</option>
-        <option value="one_off">One-off</option>
-        <option value="custom">Custom</option>
-      </select>
-      <input id="sched-amount" type="number" step="0.01" min="0.01" placeholder="Amount" />
-      <button id="btn-create-schedule">Add schedule</button>
+    <!-- MEETINGS LIST -->
+    <div class="card hidden" id="box-meetings">
+      <h2>Meetings</h2>
+      <div id="meetings-list" class="muted">No meetings yet.</div>
+      <div id="create-meeting-form" class="hidden">
+        <h3>Schedule a meeting</h3>
+        <input id="meeting-title" placeholder="Meeting title" />
+        <textarea id="meeting-description" placeholder="Agenda / description (optional)"></textarea>
+        <input id="meeting-datetime" type="datetime-local" />
+        <input id="meeting-location" placeholder="Location (optional)" />
+        <button id="btn-create-meeting">Schedule meeting</button>
+      </div>
     </div>
 
-    <h3 style="margin-top:16px">Ledger</h3>
-    <div id="ledger-list" class="muted">No transactions yet.</div>
-    <div id="post-txn-form" class="hidden">
-      <h3>Post transaction</h3>
-      <select id="txn-type">
-        <option value="contribution">Contribution</option>
-        <option value="income">Income</option>
-        <option value="expense">Expense</option>
-        <option value="adjustment">Adjustment</option>
-      </select>
-      <select id="txn-direction">
-        <option value="in">Money in</option>
-        <option value="out">Money out</option>
-      </select>
-      <input id="txn-amount" type="number" step="0.01" min="0.01" placeholder="Amount" />
-      <input id="txn-date" type="date" />
-      <select id="txn-member">
-        <option value="">No specific member</option>
-      </select>
-      <input id="txn-purpose" placeholder="Purpose (optional)" />
-      <button id="btn-post-txn">Post transaction</button>
+    <!-- MEETING DETAIL -->
+    <div class="card hidden" id="box-meeting-detail">
+      <h2 id="meeting-detail-title">Meeting</h2>
+      <div id="meeting-detail-meta" class="muted"></div>
+      <div id="meeting-detail-agenda" class="muted"></div>
+
+      <div id="meeting-status-control" class="hidden">
+        <select id="meeting-status-select">
+          <option value="scheduled">Scheduled</option>
+          <option value="in_progress">In progress</option>
+          <option value="completed">Completed</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
+        <button id="btn-update-meeting-status" class="secondary">Update status</button>
+      </div>
+
+      <button id="btn-close-meeting" type="button" class="secondary">Close meeting view</button>
+
+      <hr class="section-divider" />
+      <h3>Attendance</h3>
+      <div id="attendance-list" class="muted">No members.</div>
+
+      <hr class="section-divider" />
+      <h3>Decisions</h3>
+      <div id="decisions-list" class="muted">No decisions yet.</div>
+      <div id="create-decision-form" class="hidden">
+        <input id="decision-title" placeholder="Decision title" />
+        <textarea id="decision-description" placeholder="Description (optional)"></textarea>
+        <button id="btn-create-decision">Record decision</button>
+      </div>
+
+      <hr class="section-divider" />
+      <h3>Action items (this meeting)</h3>
+      <div id="meeting-action-items-list" class="muted">No action items yet.</div>
+      <div id="create-meeting-action-item-form" class="hidden">
+        <input id="mai-title" placeholder="Action item title" />
+        <textarea id="mai-description" placeholder="Description (optional)"></textarea>
+        <select id="mai-assignee">
+          <option value="">Unassigned</option>
+        </select>
+        <select id="mai-decision">
+          <option value="">Not linked to a decision</option>
+        </select>
+        <input id="mai-due" type="date" />
+        <button id="btn-create-meeting-action-item">Add action item</button>
+      </div>
     </div>
+
+    <!-- ORG-WIDE ACTION ITEMS -->
+    <div class="card hidden" id="box-action-items">
+      <h2>All action items</h2>
+      <div id="org-action-items-list" class="muted">No action items yet.</div>
+      <div id="create-org-action-item-form" class="hidden">
+        <h3>Add action item</h3>
+        <input id="ai-title" placeholder="Action item title" />
+        <textarea id="ai-description" placeholder="Description (optional)"></textarea>
+        <select id="ai-assignee">
+          <option value="">Unassigned</option>
+        </select>
+        <select id="ai-meeting">
+          <option value="">Not linked to a meeting</option>
+        </select>
+        <input id="ai-due" type="date" />
+        <button id="btn-create-org-action-item">Add action item</button>
+      </div>
+    </div>
+
   </div>
 
   <script>
@@ -136,19 +233,31 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   }
 });
 
-// Roles allowed to manage funds/schedules/transactions — mirrors can_manage_funds / can_post_money on the backend.
-// This is a UI convenience only. The database functions are the real authorization boundary.
+// UI-convenience role sets only. The database functions (can_manage_funds,
+// can_manage_governance, and the individual RPCs) are the real authorization
+// boundary — these just decide which buttons render. A hidden button is not
+// a security control.
 const MANAGE_ROLES = ["owner", "admin", "treasurer"];
+const GOVERN_ROLES = ["owner", "admin", "secretary"];
 
 const state = {
   orgId: null,
   orgName: "",
   currency: "NGN",
   role: null,
-  isAuthorized: false,
+  isAuthorized: false,      // finance management (Sprint 2)
+  isGovAuthorized: false,   // governance management (Sprint 3.2)
+  currentUserId: null,
   members: [],       // [{id, user_id, name}]
   funds: [],
-  selectedFund: null
+  selectedFund: null,
+  meetings: [],
+  selectedMeeting: null,
+  meetingDecisions: [],
+  meetingAttendees: [],
+  meetingActionItems: [],
+  orgActionItems: [],
+  activeTab: "finance"
 };
 
 function msg(text, ok = false) {
@@ -162,6 +271,18 @@ function msg(text, ok = false) {
 function fmt(amount) {
   const n = Number(amount || 0);
   return state.currency + " " + n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function fmtDate(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+}
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str == null ? "" : String(str);
+  return div.innerHTML;
 }
 
 function cleanAuthUrl() {
@@ -181,10 +302,12 @@ async function loadApp(session) {
   if (!session) {
     $("box-app").classList.add("hidden");
     hideFinance();
+    hideGovernance();
     return;
   }
   $("box-auth").classList.add("hidden");
   $("box-app").classList.remove("hidden");
+  state.currentUserId = session.user.id;
 
   if ($("who")) {
     $("who").textContent = session.user.email || "";
@@ -209,6 +332,7 @@ async function loadApp(session) {
   const first = (data || [])[0];
   if (!first) {
     hideFinance();
+    hideGovernance();
     return;
   }
 
@@ -217,8 +341,12 @@ async function loadApp(session) {
   state.currency = (first.organizations && first.organizations.currency) || "NGN";
   state.role = first.role;
   state.isAuthorized = MANAGE_ROLES.includes(first.role);
+  state.isGovAuthorized = GOVERN_ROLES.includes(first.role);
 
+  $("tabbar").classList.remove("hidden");
   await loadFinance();
+  await loadGovernance();
+  showTab(state.activeTab);
 }
 
 async function refresh() {
@@ -246,7 +374,9 @@ sb.auth.onAuthStateChange(async (event, session) => {
   if (event === "SIGNED_OUT") {
     $("box-app").classList.add("hidden");
     $("box-auth").classList.remove("hidden");
+    $("tabbar").classList.add("hidden");
     hideFinance();
+    hideGovernance();
     msg("Signed out.", true);
   }
 });
@@ -271,7 +401,9 @@ async function signOut() {
   await sb.auth.signOut();
   $("box-app").classList.add("hidden");
   $("box-auth").classList.remove("hidden");
+  $("tabbar").classList.add("hidden");
   hideFinance();
+  hideGovernance();
   msg("Signed out.", true);
 }
 $("btn-out").onclick = signOut;
@@ -290,7 +422,19 @@ $("btn-org").onclick = async () => {
   }
 };
 
-// ---------- FINANCE: LOAD ----------
+// ---------- TABS ----------
+
+function showTab(tab) {
+  state.activeTab = tab;
+  $("finance-section").classList.toggle("hidden", tab !== "finance");
+  $("governance-section").classList.toggle("hidden", tab !== "governance");
+  $("tab-finance").className = tab === "finance" ? "" : "secondary";
+  $("tab-governance").className = tab === "governance" ? "" : "secondary";
+}
+$("tab-finance").onclick = () => showTab("finance");
+$("tab-governance").onclick = () => showTab("governance");
+
+// ================= FINANCE (Sprint 2 — unchanged logic) =================
 
 function hideFinance() {
   $("box-org-balance").classList.add("hidden");
@@ -307,7 +451,6 @@ async function loadFinance() {
   $("box-funds").classList.remove("hidden");
   $("org-title").textContent = state.orgName + " (" + state.role + ")";
 
-  // Org balance — read from the backend view, never computed client-side.
   const { data: orgBal, error: orgBalErr } = await sb
     .from("org_balances")
     .select("*")
@@ -322,9 +465,7 @@ async function loadFinance() {
     $("org-balance-detail").textContent = "In " + fmt(bal.money_in) + " · Out " + fmt(bal.money_out);
   }
 
-  // Members (for display names and the transaction form).
-  // organization_members.user_id has no declared FK to profiles, so PostgREST
-  // can't auto-embed the join — fetch separately and join client-side instead.
+  // Members — no declared FK to profiles, fetch separately and join client-side.
   const { data: members, error: memErr } = await sb
     .from("organization_members")
     .select("id, user_id, role")
@@ -350,31 +491,25 @@ async function loadFinance() {
     state.members = (members || []).map((m) => ({
       id: m.id,
       user_id: m.user_id,
+      role: m.role,
       name: profileById[m.user_id] || "Member"
     }));
   }
 
-  // Funds + their balances
   const { data: funds, error: fundsErr } = await sb
     .from("funds")
     .select("*")
     .eq("organization_id", state.orgId)
     .order("created_at", { ascending: true });
 
-  if (fundsErr) {
-    msg(fundsErr.message);
-    return;
-  }
+  if (fundsErr) { msg(fundsErr.message); return; }
 
   const { data: fundBalances, error: fbErr } = await sb
     .from("fund_balances")
     .select("*")
     .eq("organization_id", state.orgId);
 
-  if (fbErr) {
-    msg(fbErr.message);
-    return;
-  }
+  if (fbErr) { msg(fbErr.message); return; }
 
   const balByFund = {};
   (fundBalances || []).forEach((b) => { balByFund[b.fund_id] = b; });
@@ -382,11 +517,8 @@ async function loadFinance() {
   state.funds = funds || [];
   renderFunds(balByFund);
 
-  const createFundForm = $("create-fund-form");
-  if (state.isAuthorized) createFundForm.classList.remove("hidden");
-  else createFundForm.classList.add("hidden");
+  $("create-fund-form").classList.toggle("hidden", !state.isAuthorized);
 
-  // Refresh open fund detail if one is selected
   if (state.selectedFund) {
     const stillExists = state.funds.find((f) => f.id === state.selectedFund.id);
     if (stillExists) {
@@ -401,40 +533,32 @@ async function loadFinance() {
 
 function renderFunds(balByFund) {
   const list = $("funds-list");
-  if (!state.funds.length) {
-    list.textContent = "No funds yet.";
-    return;
-  }
+  if (!state.funds.length) { list.textContent = "No funds yet."; return; }
   list.innerHTML = "";
   state.funds.forEach((f) => {
     const bal = balByFund[f.id] || { balance: 0 };
     const row = document.createElement("div");
     row.className = "row";
-
     const main = document.createElement("div");
     main.className = "main";
     main.innerHTML =
       '<div class="name">' + escapeHtml(f.name) +
       '<span class="pill ' + (f.status === "active" ? "active" : "inactive") + '">' + f.status + "</span></div>" +
       '<div class="sub">' + (f.purpose ? escapeHtml(f.purpose) : "No purpose set") + "</div>";
-
     const amt = document.createElement("div");
     amt.className = "amount " + (Number(bal.balance) >= 0 ? "in" : "out");
     amt.textContent = fmt(bal.balance);
-
     row.appendChild(main);
     row.appendChild(amt);
     list.appendChild(row);
 
     const actions = document.createElement("div");
     actions.className = "actions";
-
     const viewBtn = document.createElement("button");
     viewBtn.className = "secondary";
     viewBtn.textContent = "View";
     viewBtn.onclick = () => selectFund(f);
     actions.appendChild(viewBtn);
-
     if (state.isAuthorized) {
       const toggleBtn = document.createElement("button");
       toggleBtn.className = "secondary";
@@ -442,7 +566,6 @@ function renderFunds(balByFund) {
       toggleBtn.onclick = () => toggleFundStatus(f);
       actions.appendChild(toggleBtn);
     }
-
     list.appendChild(actions);
   });
 }
@@ -454,9 +577,7 @@ async function toggleFundStatus(fund) {
     if (error) throw error;
     msg("Fund updated.", true);
     await loadFinance();
-  } catch (e) {
-    msg(e.message);
-  }
+  } catch (e) { msg(e.message); }
 }
 
 $("btn-create-fund").onclick = async () => {
@@ -467,25 +588,14 @@ $("btn-create-fund").onclick = async () => {
     if (!name) throw new Error("Enter a fund name.");
     btn.disabled = true;
     const { error } = await sb.rpc("create_fund", {
-      p_org: state.orgId,
-      p_name: name,
-      p_purpose: purpose || null,
-      p_starts: null,
-      p_ends: null
+      p_org: state.orgId, p_name: name, p_purpose: purpose || null, p_starts: null, p_ends: null
     });
     if (error) throw error;
-    $("fund-name").value = "";
-    $("fund-purpose").value = "";
+    $("fund-name").value = ""; $("fund-purpose").value = "";
     msg("Fund created.", true);
     await loadFinance();
-  } catch (e) {
-    msg(e.message);
-  } finally {
-    btn.disabled = false;
-  }
+  } catch (e) { msg(e.message); } finally { btn.disabled = false; }
 };
-
-// ---------- FUND DETAIL: SCHEDULES + LEDGER ----------
 
 function selectFund(fund) {
   state.selectedFund = fund;
@@ -504,48 +614,24 @@ async function loadFundDetail() {
 
   $("fund-title").textContent = fund.name;
 
-  const { data: fb } = await sb
-    .from("fund_balances")
-    .select("*")
-    .eq("fund_id", fund.id)
-    .maybeSingle();
+  const { data: fb } = await sb.from("fund_balances").select("*").eq("fund_id", fund.id).maybeSingle();
   $("fund-balance-amt").textContent = fmt((fb && fb.balance) || 0);
 
-  // Schedules
   const { data: schedules, error: schedErr } = await sb
-    .from("contribution_schedules")
-    .select("*")
-    .eq("fund_id", fund.id)
-    .order("created_at", { ascending: true });
-
-  if (schedErr) {
-    msg(schedErr.message);
-  } else {
-    renderSchedules(schedules || []);
-  }
+    .from("contribution_schedules").select("*").eq("fund_id", fund.id).order("created_at", { ascending: true });
+  if (schedErr) { msg(schedErr.message); } else { renderSchedules(schedules || []); }
 
   $("create-schedule-form").classList.toggle("hidden", !state.isAuthorized);
 
-  // Ledger
   const { data: txns, error: txnErr } = await sb
-    .from("transactions")
-    .select("*")
-    .eq("fund_id", fund.id)
-    .order("created_at", { ascending: false });
+    .from("transactions").select("*").eq("fund_id", fund.id).order("created_at", { ascending: false });
+  if (txnErr) { msg(txnErr.message); } else { renderLedger(txns || []); }
 
-  if (txnErr) {
-    msg(txnErr.message);
-  } else {
-    renderLedger(txns || []);
-  }
-
-  // Member dropdown for posting
   const memberSelect = $("txn-member");
   memberSelect.innerHTML = '<option value="">No specific member</option>';
   state.members.forEach((m) => {
     const opt = document.createElement("option");
-    opt.value = m.id;
-    opt.textContent = m.name;
+    opt.value = m.id; opt.textContent = m.name;
     memberSelect.appendChild(opt);
   });
 
@@ -555,10 +641,7 @@ async function loadFundDetail() {
 
 function renderSchedules(schedules) {
   const list = $("schedules-list");
-  if (!schedules.length) {
-    list.textContent = "No schedules yet.";
-    return;
-  }
+  if (!schedules.length) { list.textContent = "No schedules yet."; return; }
   list.innerHTML = "";
   schedules.forEach((s) => {
     const row = document.createElement("div");
@@ -579,66 +662,45 @@ $("btn-create-schedule").onclick = async () => {
     if (!amount || amount <= 0) throw new Error("Enter a valid amount.");
     btn.disabled = true;
     const { error } = await sb.rpc("create_schedule", {
-      p_fund: state.selectedFund.id,
-      p_frequency: frequency,
-      p_amount: amount,
-      p_starts: null,
-      p_ends: null
+      p_fund: state.selectedFund.id, p_frequency: frequency, p_amount: amount, p_starts: null, p_ends: null
     });
     if (error) throw error;
     $("sched-amount").value = "";
     msg("Schedule added.", true);
     await loadFundDetail();
-  } catch (e) {
-    msg(e.message);
-  } finally {
-    btn.disabled = false;
-  }
+  } catch (e) { msg(e.message); } finally { btn.disabled = false; }
 };
 
 function renderLedger(txns) {
   const list = $("ledger-list");
-  if (!txns.length) {
-    list.textContent = "No transactions yet.";
-    return;
-  }
-
+  if (!txns.length) { list.textContent = "No transactions yet."; return; }
   const reversedIds = new Set(txns.filter((t) => t.reverses_id).map((t) => t.reverses_id));
   const memberNameById = {};
   state.members.forEach((m) => { memberNameById[m.id] = m.name; });
-
   list.innerHTML = "";
   txns.forEach((t) => {
     const row = document.createElement("div");
     row.className = "row";
-
     let statusText = "Posted";
     if (t.type === "reversal") statusText = "Reversal";
     else if (reversedIds.has(t.id)) statusText = "Reversed";
-
     const memberName = t.member_id ? (memberNameById[t.member_id] || "Member") : "—";
-
     const main = document.createElement("div");
     main.className = "main";
     main.innerHTML =
       '<div class="name">' + t.type + " · " + memberName + "</div>" +
       '<div class="sub">' + t.occurred_on + " · " + statusText +
       (t.purpose ? " · " + escapeHtml(t.purpose) : "") + "</div>";
-
     const amt = document.createElement("div");
     amt.className = "amount " + t.direction;
     amt.textContent = (t.direction === "in" ? "+" : "-") + fmt(t.amount);
-
-    row.appendChild(main);
-    row.appendChild(amt);
+    row.appendChild(main); row.appendChild(amt);
     list.appendChild(row);
-
     if (state.isAuthorized && t.type !== "reversal" && !reversedIds.has(t.id)) {
       const actions = document.createElement("div");
       actions.className = "actions";
       const revBtn = document.createElement("button");
-      revBtn.className = "danger";
-      revBtn.textContent = "Reverse";
+      revBtn.className = "danger"; revBtn.textContent = "Reverse";
       revBtn.onclick = () => reverseTxn(t);
       actions.appendChild(revBtn);
       list.appendChild(actions);
@@ -649,17 +711,12 @@ function renderLedger(txns) {
 async function reverseTxn(txn) {
   try {
     const reason = window.prompt("Reason for reversal:", "Correction");
-    if (reason === null) return; // cancelled
-    const { error } = await sb.rpc("reverse_transaction", {
-      p_txn: txn.id,
-      p_reason: reason || "Correction"
-    });
+    if (reason === null) return;
+    const { error } = await sb.rpc("reverse_transaction", { p_txn: txn.id, p_reason: reason || "Correction" });
     if (error) throw error;
     msg("Transaction reversed.", true);
     await loadFinance();
-  } catch (e) {
-    msg(e.message);
-  }
+  } catch (e) { msg(e.message); }
 }
 
 $("btn-post-txn").onclick = async () => {
@@ -671,45 +728,469 @@ $("btn-post-txn").onclick = async () => {
     const date = $("txn-date").value;
     const memberId = $("txn-member").value || null;
     const purpose = $("txn-purpose").value.trim();
-
     if (!amount || amount <= 0) throw new Error("Enter a valid amount.");
     if (!date) throw new Error("Pick a date.");
-
     btn.disabled = true;
-
-    // Idempotency key — prevents duplicate posting on double-tap/network retry.
     const clientRequestId = crypto.randomUUID();
-
     const { error } = await sb.rpc("post_transaction", {
-      p_org: state.orgId,
-      p_fund: state.selectedFund.id,
-      p_member: memberId,
-      p_type: type,
-      p_direction: direction,
-      p_amount: amount,
-      p_date: date,
-      p_purpose: purpose || null,
-      p_reference: null,
-      p_client_request_id: clientRequestId
+      p_org: state.orgId, p_fund: state.selectedFund.id, p_member: memberId, p_type: type,
+      p_direction: direction, p_amount: amount, p_date: date, p_purpose: purpose || null,
+      p_reference: null, p_client_request_id: clientRequestId
     });
     if (error) throw error;
-
-    $("txn-amount").value = "";
-    $("txn-purpose").value = "";
+    $("txn-amount").value = ""; $("txn-purpose").value = "";
     msg("Transaction posted.", true);
     await loadFinance();
-  } catch (e) {
-    msg(e.message);
-  } finally {
-    btn.disabled = false;
-  }
+  } catch (e) { msg(e.message); } finally { btn.disabled = false; }
 };
 
-function escapeHtml(str) {
-  const div = document.createElement("div");
-  div.textContent = str == null ? "" : String(str);
-  return div.innerHTML;
+// ================= GOVERNANCE (Sprint 3.2 — new) =================
+
+function hideGovernance() {
+  $("box-meetings").classList.add("hidden");
+  $("box-meeting-detail").classList.add("hidden");
+  $("box-action-items").classList.add("hidden");
+  state.selectedMeeting = null;
 }
+
+async function loadGovernance() {
+  if (!state.orgId) { hideGovernance(); return; }
+
+  $("box-meetings").classList.remove("hidden");
+  $("box-action-items").classList.remove("hidden");
+
+  const { data: meetings, error: meetErr } = await sb
+    .from("meetings")
+    .select("*")
+    .eq("organization_id", state.orgId)
+    .order("scheduled_at", { ascending: false });
+
+  if (meetErr) { msg(meetErr.message); return; }
+  state.meetings = meetings || [];
+  renderMeetings();
+
+  $("create-meeting-form").classList.toggle("hidden", !state.isGovAuthorized);
+
+  const { data: orgItems, error: orgItemsErr } = await sb
+    .from("action_items")
+    .select("*")
+    .eq("organization_id", state.orgId)
+    .order("due_date", { ascending: true, nullsFirst: false })
+    .order("created_at", { ascending: false });
+
+  if (orgItemsErr) { msg(orgItemsErr.message); return; }
+  state.orgActionItems = orgItems || [];
+  renderOrgActionItems();
+
+  $("create-org-action-item-form").classList.toggle("hidden", !state.isGovAuthorized);
+  const aiAssignee = $("ai-assignee");
+  aiAssignee.innerHTML = '<option value="">Unassigned</option>';
+  state.members.forEach((m) => {
+    const opt = document.createElement("option");
+    opt.value = m.user_id; opt.textContent = m.name;
+    aiAssignee.appendChild(opt);
+  });
+  const aiMeeting = $("ai-meeting");
+  aiMeeting.innerHTML = '<option value="">Not linked to a meeting</option>';
+  state.meetings.forEach((m) => {
+    const opt = document.createElement("option");
+    opt.value = m.id; opt.textContent = m.title;
+    aiMeeting.appendChild(opt);
+  });
+
+  if (state.selectedMeeting) {
+    const stillExists = state.meetings.find((m) => m.id === state.selectedMeeting.id);
+    if (stillExists) {
+      state.selectedMeeting = stillExists;
+      await loadMeetingDetail();
+    } else {
+      $("box-meeting-detail").classList.add("hidden");
+      state.selectedMeeting = null;
+    }
+  }
+}
+
+function meetingStatusLabel(s) {
+  return { scheduled: "Scheduled", in_progress: "In progress", completed: "Completed", cancelled: "Cancelled" }[s] || s;
+}
+
+function renderMeetings() {
+  const list = $("meetings-list");
+  if (!state.meetings.length) { list.textContent = "No meetings yet."; return; }
+  list.innerHTML = "";
+  state.meetings.forEach((m) => {
+    const row = document.createElement("div");
+    row.className = "row";
+    const main = document.createElement("div");
+    main.className = "main";
+    main.innerHTML =
+      '<div class="name">' + escapeHtml(m.title) +
+      '<span class="pill ' + m.status + '">' + meetingStatusLabel(m.status) + "</span></div>" +
+      '<div class="sub">' + fmtDate(m.scheduled_at) + (m.location ? " · " + escapeHtml(m.location) : "") + "</div>";
+    row.appendChild(main);
+    list.appendChild(row);
+
+    const actions = document.createElement("div");
+    actions.className = "actions";
+    const viewBtn = document.createElement("button");
+    viewBtn.className = "secondary";
+    viewBtn.textContent = "View";
+    viewBtn.onclick = () => selectMeeting(m);
+    actions.appendChild(viewBtn);
+    list.appendChild(actions);
+  });
+}
+
+$("btn-create-meeting").onclick = async () => {
+  const btn = $("btn-create-meeting");
+  try {
+    const title = $("meeting-title").value.trim();
+    const description = $("meeting-description").value.trim();
+    const dtVal = $("meeting-datetime").value;
+    const location = $("meeting-location").value.trim();
+    if (!title) throw new Error("Enter a meeting title.");
+    if (!dtVal) throw new Error("Pick a date and time.");
+    btn.disabled = true;
+    const scheduledAt = new Date(dtVal).toISOString();
+    const { error } = await sb.rpc("create_meeting", {
+      p_org: state.orgId, p_title: title, p_description: description || null,
+      p_scheduled_at: scheduledAt, p_location: location || null
+    });
+    if (error) throw error;
+    $("meeting-title").value = ""; $("meeting-description").value = "";
+    $("meeting-datetime").value = ""; $("meeting-location").value = "";
+    msg("Meeting scheduled.", true);
+    await loadGovernance();
+  } catch (e) { msg(e.message); } finally { btn.disabled = false; }
+};
+
+function selectMeeting(meeting) {
+  state.selectedMeeting = meeting;
+  $("box-meeting-detail").classList.remove("hidden");
+  loadMeetingDetail();
+}
+
+$("btn-close-meeting").onclick = () => {
+  state.selectedMeeting = null;
+  $("box-meeting-detail").classList.add("hidden");
+};
+
+async function loadMeetingDetail() {
+  const meeting = state.selectedMeeting;
+  if (!meeting) return;
+
+  $("meeting-detail-title").textContent = meeting.title;
+  $("meeting-detail-meta").innerHTML =
+    fmtDate(meeting.scheduled_at) + (meeting.location ? " · " + escapeHtml(meeting.location) : "") +
+    '<span class="pill ' + meeting.status + '">' + meetingStatusLabel(meeting.status) + "</span>";
+  $("meeting-detail-agenda").textContent = meeting.description || "No agenda set.";
+
+  const statusControl = $("meeting-status-control");
+  statusControl.classList.toggle("hidden", !state.isGovAuthorized);
+  $("meeting-status-select").value = meeting.status;
+
+  // Attendance
+  const { data: attendees, error: attErr } = await sb
+    .from("meeting_attendees")
+    .select("*")
+    .eq("meeting_id", meeting.id);
+  if (attErr) { msg(attErr.message); } else {
+    state.meetingAttendees = attendees || [];
+    renderAttendance();
+  }
+
+  // Decisions
+  const { data: decisions, error: decErr } = await sb
+    .from("decisions")
+    .select("*")
+    .eq("meeting_id", meeting.id)
+    .order("created_at", { ascending: true });
+  if (decErr) { msg(decErr.message); } else {
+    state.meetingDecisions = decisions || [];
+    renderDecisions();
+  }
+  $("create-decision-form").classList.toggle("hidden", !state.isGovAuthorized);
+
+  // Action items for this meeting
+  const { data: items, error: itemsErr } = await sb
+    .from("action_items")
+    .select("*")
+    .eq("meeting_id", meeting.id)
+    .order("due_date", { ascending: true, nullsFirst: false });
+  if (itemsErr) { msg(itemsErr.message); } else {
+    state.meetingActionItems = items || [];
+    renderMeetingActionItems();
+  }
+
+  $("create-meeting-action-item-form").classList.toggle("hidden", !state.isGovAuthorized);
+  const maiAssignee = $("mai-assignee");
+  maiAssignee.innerHTML = '<option value="">Unassigned</option>';
+  state.members.forEach((m) => {
+    const opt = document.createElement("option");
+    opt.value = m.user_id; opt.textContent = m.name;
+    maiAssignee.appendChild(opt);
+  });
+  const maiDecision = $("mai-decision");
+  maiDecision.innerHTML = '<option value="">Not linked to a decision</option>';
+  state.meetingDecisions.forEach((d) => {
+    const opt = document.createElement("option");
+    opt.value = d.id; opt.textContent = d.title;
+    maiDecision.appendChild(opt);
+  });
+}
+
+$("btn-update-meeting-status").onclick = async () => {
+  const btn = $("btn-update-meeting-status");
+  try {
+    btn.disabled = true;
+    const newStatus = $("meeting-status-select").value;
+    const { error } = await sb.rpc("update_meeting_status", { p_meeting: state.selectedMeeting.id, p_status: newStatus });
+    if (error) throw error;
+    msg("Meeting status updated.", true);
+    await loadGovernance();
+  } catch (e) { msg(e.message); } finally { btn.disabled = false; }
+};
+
+// Attendance rendering: every active org member gets a row. Governance managers
+// can set anyone's status (upsert via add_meeting_attendee). A regular member
+// can only update their OWN status, and only once an attendee row already
+// exists for them (matches set_attendance_status's backend requirement).
+function renderAttendance() {
+  const list = $("attendance-list");
+  if (!state.members.length) { list.textContent = "No members."; return; }
+  list.innerHTML = "";
+  const statusByUser = {};
+  state.meetingAttendees.forEach((a) => { statusByUser[a.user_id] = a.status; });
+
+  state.members.forEach((m) => {
+    const currentStatus = statusByUser[m.user_id];
+    const row = document.createElement("div");
+    row.className = "row";
+
+    const main = document.createElement("div");
+    main.className = "main";
+    main.innerHTML =
+      '<div class="name">' + escapeHtml(m.name) +
+      (currentStatus
+        ? '<span class="pill ' + currentStatus + '">' + currentStatus + "</span>"
+        : '<span class="pill">not recorded</span>') + "</div>";
+    row.appendChild(main);
+
+    const canEditThisRow = state.isGovAuthorized || (m.user_id === state.currentUserId && currentStatus);
+    if (canEditThisRow) {
+      const select = document.createElement("select");
+      select.className = "inline-select";
+      ["invited", "confirmed", "attended", "absent", "excused"].forEach((s) => {
+        const opt = document.createElement("option");
+        opt.value = s; opt.textContent = s;
+        if (s === currentStatus) opt.selected = true;
+        select.appendChild(opt);
+      });
+      select.style.width = "auto";
+      select.onchange = () => updateAttendance(m.user_id, select.value);
+      row.appendChild(select);
+    }
+    list.appendChild(row);
+  });
+}
+
+async function updateAttendance(userId, status) {
+  try {
+    if (state.isGovAuthorized) {
+      const { error } = await sb.rpc("add_meeting_attendee", {
+        p_meeting: state.selectedMeeting.id, p_user: userId, p_status: status
+      });
+      if (error) throw error;
+    } else {
+      const { error } = await sb.rpc("set_attendance_status", {
+        p_meeting: state.selectedMeeting.id, p_user: userId, p_status: status
+      });
+      if (error) throw error;
+    }
+    msg("Attendance updated.", true);
+    await loadMeetingDetail();
+  } catch (e) { msg(e.message); }
+}
+
+function decisionStatusLabel(s) {
+  return { proposed: "Proposed", approved: "Approved", rejected: "Rejected", deferred: "Deferred" }[s] || s;
+}
+
+function renderDecisions() {
+  const list = $("decisions-list");
+  if (!state.meetingDecisions.length) { list.textContent = "No decisions yet."; return; }
+  const nameByUserId = {};
+  state.members.forEach((m) => { nameByUserId[m.user_id] = m.name; });
+  list.innerHTML = "";
+  state.meetingDecisions.forEach((d) => {
+    const row = document.createElement("div");
+    row.className = "row";
+    const main = document.createElement("div");
+    main.className = "main";
+    main.innerHTML =
+      '<div class="name">' + escapeHtml(d.title) +
+      '<span class="pill ' + d.decision_status + '">' + decisionStatusLabel(d.decision_status) + "</span></div>" +
+      '<div class="sub">' + (d.description ? escapeHtml(d.description) + " · " : "") +
+      "Proposed by " + (nameByUserId[d.proposed_by] || "Member") +
+      (d.decided_at ? " · Decided " + fmtDate(d.decided_at) : "") + "</div>";
+    row.appendChild(main);
+    list.appendChild(row);
+
+    if (state.isGovAuthorized && d.decision_status === "proposed") {
+      const actions = document.createElement("div");
+      actions.className = "actions";
+      [["approved", "Approve"], ["rejected", "Reject"], ["deferred", "Defer"]].forEach(([val, label]) => {
+        const b = document.createElement("button");
+        b.className = "secondary";
+        b.textContent = label;
+        b.onclick = () => updateDecisionStatus(d, val);
+        actions.appendChild(b);
+      });
+      list.appendChild(actions);
+    }
+  });
+}
+
+async function updateDecisionStatus(decision, status) {
+  try {
+    const { error } = await sb.rpc("update_decision_status", { p_decision: decision.id, p_status: status });
+    if (error) throw error;
+    msg("Decision updated.", true);
+    await loadMeetingDetail();
+  } catch (e) { msg(e.message); }
+}
+
+$("btn-create-decision").onclick = async () => {
+  const btn = $("btn-create-decision");
+  try {
+    const title = $("decision-title").value.trim();
+    const description = $("decision-description").value.trim();
+    if (!title) throw new Error("Enter a decision title.");
+    btn.disabled = true;
+    const { error } = await sb.rpc("create_decision", {
+      p_org: state.orgId, p_meeting: state.selectedMeeting.id, p_title: title, p_description: description || null
+    });
+    if (error) throw error;
+    $("decision-title").value = ""; $("decision-description").value = "";
+    msg("Decision recorded.", true);
+    await loadMeetingDetail();
+  } catch (e) { msg(e.message); } finally { btn.disabled = false; }
+};
+
+function actionItemStatusLabel(s) {
+  return { open: "Open", in_progress: "In progress", done: "Done", cancelled: "Cancelled" }[s] || s;
+}
+
+function renderActionItemRow(item, nameByUserId, meetingTitleById) {
+  const row = document.createElement("div");
+  row.className = "row";
+  const main = document.createElement("div");
+  main.className = "main";
+  const linkedMeeting = item.meeting_id && meetingTitleById ? meetingTitleById[item.meeting_id] : null;
+  main.innerHTML =
+    '<div class="name">' + escapeHtml(item.title) +
+    '<span class="pill ' + item.status + '">' + actionItemStatusLabel(item.status) + "</span></div>" +
+    '<div class="sub">' +
+    (item.assigned_to ? "Assigned to " + escapeHtml(nameByUserId[item.assigned_to] || "Member") : "Unassigned") +
+    (item.due_date ? " · Due " + item.due_date : "") +
+    (linkedMeeting ? " · " + escapeHtml(linkedMeeting) : "") +
+    (item.description ? " · " + escapeHtml(item.description) : "") + "</div>";
+  row.appendChild(main);
+
+  const canEdit = state.isGovAuthorized || item.assigned_to === state.currentUserId;
+  if (canEdit && item.status !== "cancelled") {
+    const select = document.createElement("select");
+    select.style.width = "auto";
+    ["open", "in_progress", "done", "cancelled"].forEach((s) => {
+      const opt = document.createElement("option");
+      opt.value = s; opt.textContent = actionItemStatusLabel(s);
+      if (s === item.status) opt.selected = true;
+      select.appendChild(opt);
+    });
+    select.onchange = () => updateActionItemStatus(item, select.value);
+    const actions = document.createElement("div");
+    actions.className = "actions";
+    actions.appendChild(select);
+    row.appendChild(actions);
+  }
+  return row;
+}
+
+async function updateActionItemStatus(item, status) {
+  try {
+    const { error } = await sb.rpc("update_action_item_status", { p_action_item: item.id, p_status: status });
+    if (error) throw error;
+    msg("Action item updated.", true);
+    await loadGovernance();
+  } catch (e) { msg(e.message); }
+}
+
+function renderMeetingActionItems() {
+  const list = $("meeting-action-items-list");
+  if (!state.meetingActionItems.length) { list.textContent = "No action items yet."; return; }
+  const nameByUserId = {};
+  state.members.forEach((m) => { nameByUserId[m.user_id] = m.name; });
+  list.innerHTML = "";
+  state.meetingActionItems.forEach((item) => {
+    list.appendChild(renderActionItemRow(item, nameByUserId, null));
+  });
+}
+
+function renderOrgActionItems() {
+  const list = $("org-action-items-list");
+  if (!state.orgActionItems.length) { list.textContent = "No action items yet."; return; }
+  const nameByUserId = {};
+  state.members.forEach((m) => { nameByUserId[m.user_id] = m.name; });
+  const meetingTitleById = {};
+  state.meetings.forEach((m) => { meetingTitleById[m.id] = m.title; });
+  list.innerHTML = "";
+  state.orgActionItems.forEach((item) => {
+    list.appendChild(renderActionItemRow(item, nameByUserId, meetingTitleById));
+  });
+}
+
+$("btn-create-meeting-action-item").onclick = async () => {
+  const btn = $("btn-create-meeting-action-item");
+  try {
+    const title = $("mai-title").value.trim();
+    const description = $("mai-description").value.trim();
+    const assignee = $("mai-assignee").value || null;
+    const decisionId = $("mai-decision").value || null;
+    const due = $("mai-due").value || null;
+    if (!title) throw new Error("Enter an action item title.");
+    btn.disabled = true;
+    const { error } = await sb.rpc("create_action_item", {
+      p_org: state.orgId, p_meeting: state.selectedMeeting.id, p_decision: decisionId,
+      p_assigned_to: assignee, p_title: title, p_description: description || null, p_due_date: due
+    });
+    if (error) throw error;
+    $("mai-title").value = ""; $("mai-description").value = ""; $("mai-due").value = "";
+    msg("Action item added.", true);
+    await loadMeetingDetail();
+    await loadGovernance();
+  } catch (e) { msg(e.message); } finally { btn.disabled = false; }
+};
+
+$("btn-create-org-action-item").onclick = async () => {
+  const btn = $("btn-create-org-action-item");
+  try {
+    const title = $("ai-title").value.trim();
+    const description = $("ai-description").value.trim();
+    const assignee = $("ai-assignee").value || null;
+    const meetingId = $("ai-meeting").value || null;
+    const due = $("ai-due").value || null;
+    if (!title) throw new Error("Enter an action item title.");
+    btn.disabled = true;
+    const { error } = await sb.rpc("create_action_item", {
+      p_org: state.orgId, p_meeting: meetingId, p_decision: null,
+      p_assigned_to: assignee, p_title: title, p_description: description || null, p_due_date: due
+    });
+    if (error) throw error;
+    $("ai-title").value = ""; $("ai-description").value = ""; $("ai-due").value = "";
+    msg("Action item added.", true);
+    await loadGovernance();
+  } catch (e) { msg(e.message); } finally { btn.disabled = false; }
+};
 
 refresh().catch((e) => msg(e.message));
 </script>
