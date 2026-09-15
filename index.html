@@ -1,3 +1,6 @@
+Here's the full current `index.html` — copy everything between the backticks and paste over the existing content in GitHub's editor, then commit.
+
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7,32 +10,120 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     body { font-family: system-ui, sans-serif; background: #0b1530; color: #eef3ff; margin: 0; padding: 20px; }
-    input, button { width: 100%; box-sizing: border-box; padding: 12px; margin: 6px 0; border-radius: 10px; border: 0; font-size: 16px; }
-    button { background: #3dd6c6; font-weight: 700; }
+    input, select, button { width: 100%; box-sizing: border-box; padding: 12px; margin: 6px 0; border-radius: 10px; border: 0; font-size: 16px; }
+    button { background: #3dd6c6; font-weight: 700; color: #06231f; }
+    button.secondary { background: #1c2c52; color: #eef3ff; }
+    button.danger { background: #ff8a8a; color: #2a0808; }
+    button:disabled { opacity: 0.5; }
     .card { background: #132044; padding: 16px; border-radius: 16px; margin-bottom: 12px; }
     .muted { color: #9bb0d0; font-size: 14px; }
     .err { color: #ff8a8a; }
     .ok { color: #7dffc0; }
     .hidden { display: none; }
+    .row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #1c2c52; gap: 8px; }
+    .row:last-child { border-bottom: none; }
+    .row .main { flex: 1; min-width: 0; }
+    .row .name { font-weight: 600; }
+    .row .sub { color: #9bb0d0; font-size: 13px; }
+    .amount { font-weight: 700; white-space: nowrap; }
+    .amount.in { color: #7dffc0; }
+    .amount.out { color: #ff8a8a; }
+    .pill { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px; background: #1c2c52; color: #9bb0d0; margin-left: 6px; }
+    .pill.active { background: #16412f; color: #7dffc0; }
+    .pill.inactive { background: #401616; color: #ff8a8a; }
+    .actions { display: flex; gap: 6px; margin-top: 4px; }
+    .actions button { width: auto; margin: 0; padding: 8px 12px; font-size: 13px; }
+    h1 { margin-bottom: 4px; }
+    h2 { font-size: 16px; margin: 0 0 8px; }
+    h3 { font-size: 14px; margin: 0 0 4px; }
+    .balance-big { font-size: 28px; font-weight: 800; }
   </style>
 </head>
 <body>
   <h1>Novato</h1>
   <div id="msg" class="muted"></div>
+
   <div class="card hidden" id="box-auth">
     <b>Email login</b>
     <input id="email" type="email" placeholder="you@email.com" />
     <button id="btn-link">Send login email</button>
     <p class="muted">Check your email and tap the link — it will bring you back here signed in. Open it in the same browser you're using now (avoid an in-app mail browser if possible).</p>
-    <button id="btn-out" type="button">Sign out</button>
+    <button id="btn-out" type="button" class="secondary">Sign out</button>
   </div>
+
   <div class="card hidden" id="box-app">
     <b>You are in</b>
     <div id="who"></div>
     <div id="orgs" class="muted"></div>
     <input id="org" placeholder="New organization name" />
     <button id="btn-org">Create organization</button>
+    <button id="btn-out2" type="button" class="secondary">Sign out</button>
   </div>
+
+  <!-- ORG BALANCE -->
+  <div class="card hidden" id="box-org-balance">
+    <h2 id="org-title">Organization</h2>
+    <div class="muted">Total balance</div>
+    <div class="balance-big" id="org-balance-amt">—</div>
+    <div class="muted" id="org-balance-detail"></div>
+  </div>
+
+  <!-- FUNDS -->
+  <div class="card hidden" id="box-funds">
+    <h2>Funds</h2>
+    <div id="funds-list" class="muted">No funds yet.</div>
+    <div id="create-fund-form" class="hidden">
+      <h3>Create fund</h3>
+      <input id="fund-name" placeholder="Fund name" />
+      <input id="fund-purpose" placeholder="Purpose (optional)" />
+      <button id="btn-create-fund">Create fund</button>
+    </div>
+  </div>
+
+  <!-- SELECTED FUND -->
+  <div class="card hidden" id="box-fund">
+    <h2 id="fund-title">Fund</h2>
+    <div class="muted">Fund balance</div>
+    <div class="balance-big" id="fund-balance-amt">—</div>
+    <button id="btn-close-fund" type="button" class="secondary">Close fund view</button>
+
+    <h3 style="margin-top:16px">Contribution schedules</h3>
+    <div id="schedules-list" class="muted">No schedules yet.</div>
+    <div id="create-schedule-form" class="hidden">
+      <select id="sched-frequency">
+        <option value="weekly">Weekly</option>
+        <option value="monthly" selected>Monthly</option>
+        <option value="one_off">One-off</option>
+        <option value="custom">Custom</option>
+      </select>
+      <input id="sched-amount" type="number" step="0.01" min="0.01" placeholder="Amount" />
+      <button id="btn-create-schedule">Add schedule</button>
+    </div>
+
+    <h3 style="margin-top:16px">Ledger</h3>
+    <div id="ledger-list" class="muted">No transactions yet.</div>
+    <div id="post-txn-form" class="hidden">
+      <h3>Post transaction</h3>
+      <select id="txn-type">
+        <option value="contribution">Contribution</option>
+        <option value="income">Income</option>
+        <option value="expense">Expense</option>
+        <option value="adjustment">Adjustment</option>
+      </select>
+      <select id="txn-direction">
+        <option value="in">Money in</option>
+        <option value="out">Money out</option>
+      </select>
+      <input id="txn-amount" type="number" step="0.01" min="0.01" placeholder="Amount" />
+      <input id="txn-date" type="date" />
+      <select id="txn-member">
+        <option value="">No specific member</option>
+      </select>
+      <input id="txn-purpose" placeholder="Purpose (optional)" />
+      <button id="btn-post-txn">Post transaction</button>
+    </div>
+  </div>
+
   <script>
 const $ = (id) => document.getElementById(id);
 
@@ -48,6 +139,21 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   }
 });
 
+// Roles allowed to manage funds/schedules/transactions — mirrors can_manage_funds / can_post_money on the backend.
+// This is a UI convenience only. The database functions are the real authorization boundary.
+const MANAGE_ROLES = ["owner", "admin", "treasurer"];
+
+const state = {
+  orgId: null,
+  orgName: "",
+  currency: "NGN",
+  role: null,
+  isAuthorized: false,
+  members: [],       // [{id, user_id, name}]
+  funds: [],
+  selectedFund: null
+};
+
 function msg(text, ok = false) {
   const el = $("msg");
   if (el) {
@@ -56,25 +162,28 @@ function msg(text, ok = false) {
   }
 }
 
+function fmt(amount) {
+  const n = Number(amount || 0);
+  return state.currency + " " + n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 function cleanAuthUrl() {
   const url = new URL(window.location.href);
-
   if (
     url.hash.includes("access_token") ||
     url.hash.includes("refresh_token") ||
     url.hash.includes("type=magiclink")
   ) {
-    window.history.replaceState(
-      {},
-      document.title,
-      url.origin + url.pathname + url.search
-    );
+    window.history.replaceState({}, document.title, url.origin + url.pathname + url.search);
   }
 }
+
+// ---------- AUTH / ORG ----------
 
 async function loadApp(session) {
   if (!session) {
     $("box-app").classList.add("hidden");
+    hideFinance();
     return;
   }
   $("box-auth").classList.add("hidden");
@@ -86,8 +195,9 @@ async function loadApp(session) {
 
   const { data, error } = await sb
     .from("organization_members")
-    .select("organization_id, role, organizations(name)")
-    .eq("user_id", session.user.id);
+    .select("organization_id, role, organizations(name, currency)")
+    .eq("user_id", session.user.id)
+    .eq("status", "active");
 
   if (error) {
     msg(error.message);
@@ -98,16 +208,28 @@ async function loadApp(session) {
     (data || [])
       .map((r) => (r.organizations && r.organizations.name) + " (" + r.role + ")")
       .join(" · ") || "No organization yet.";
+
+  const first = (data || [])[0];
+  if (!first) {
+    hideFinance();
+    return;
+  }
+
+  state.orgId = first.organization_id;
+  state.orgName = (first.organizations && first.organizations.name) || "Organization";
+  state.currency = (first.organizations && first.organizations.currency) || "NGN";
+  state.role = first.role;
+  state.isAuthorized = MANAGE_ROLES.includes(first.role);
+
+  await loadFinance();
 }
 
 async function refresh() {
   const { data, error } = await sb.auth.getSession();
-
   if (error) {
     msg(error.message);
     return;
   }
-
   if (data.session) {
     cleanAuthUrl();
     await loadApp(data.session);
@@ -117,20 +239,17 @@ async function refresh() {
 }
 
 sb.auth.onAuthStateChange(async (event, session) => {
-  console.log("Auth event:", event);
-
   if (event === "SIGNED_IN" && session) {
     cleanAuthUrl();
-
     setTimeout(async () => {
       await loadApp(session);
       msg("Logged in successfully.", true);
     }, 0);
   }
-
   if (event === "SIGNED_OUT") {
     $("box-app").classList.add("hidden");
     $("box-auth").classList.remove("hidden");
+    hideFinance();
     msg("Signed out.", true);
   }
 });
@@ -138,48 +257,35 @@ sb.auth.onAuthStateChange(async (event, session) => {
 $("btn-link").onclick = async () => {
   try {
     const email = $("email").value.trim();
-
-    if (!email) {
-      throw new Error("Enter your email.");
-    }
-
+    if (!email) throw new Error("Enter your email.");
     const redirectTo = window.location.origin + window.location.pathname;
-
     const { error } = await sb.auth.signInWithOtp({
       email,
-      options: {
-        emailRedirectTo: redirectTo,
-        shouldCreateUser: true
-      }
+      options: { emailRedirectTo: redirectTo, shouldCreateUser: true }
     });
-
     if (error) throw error;
-
     msg("Check your email.", true);
   } catch (e) {
     msg(e.message);
   }
 };
 
-$("btn-out").onclick = async () => {
+async function signOut() {
   await sb.auth.signOut();
   $("box-app").classList.add("hidden");
   $("box-auth").classList.remove("hidden");
+  hideFinance();
   msg("Signed out.", true);
-};
+}
+$("btn-out").onclick = signOut;
+$("btn-out2").onclick = signOut;
 
 $("btn-org").onclick = async () => {
   try {
     const name = $("org").value.trim();
-
-    if (!name) {
-      throw new Error("Enter an organization name.");
-    }
-
+    if (!name) throw new Error("Enter an organization name.");
     const { data, error } = await sb.rpc("create_organization", { p_name: name });
-
     if (error) throw error;
-
     msg("Created " + (data?.name || name), true);
     await refresh();
   } catch (e) {
@@ -187,7 +293,414 @@ $("btn-org").onclick = async () => {
   }
 };
 
+// ---------- FINANCE: LOAD ----------
+
+function hideFinance() {
+  $("box-org-balance").classList.add("hidden");
+  $("box-funds").classList.add("hidden");
+  $("box-fund").classList.add("hidden");
+  state.orgId = null;
+  state.selectedFund = null;
+}
+
+async function loadFinance() {
+  if (!state.orgId) { hideFinance(); return; }
+
+  $("box-org-balance").classList.remove("hidden");
+  $("box-funds").classList.remove("hidden");
+  $("org-title").textContent = state.orgName + " (" + state.role + ")";
+
+  // Org balance — read from the backend view, never computed client-side.
+  const { data: orgBal, error: orgBalErr } = await sb
+    .from("org_balances")
+    .select("*")
+    .eq("organization_id", state.orgId)
+    .maybeSingle();
+
+  if (orgBalErr) {
+    msg(orgBalErr.message);
+  } else {
+    const bal = orgBal || { money_in: 0, money_out: 0, balance: 0 };
+    $("org-balance-amt").textContent = fmt(bal.balance);
+    $("org-balance-detail").textContent = "In " + fmt(bal.money_in) + " · Out " + fmt(bal.money_out);
+  }
+
+  // Members (for display names and the transaction form)
+  const { data: members, error: memErr } = await sb
+    .from("organization_members")
+    .select("id, user_id, role, profiles(full_name)")
+    .eq("organization_id", state.orgId)
+    .eq("status", "active");
+
+  if (memErr) {
+    msg(memErr.message);
+  } else {
+    state.members = (members || []).map((m) => ({
+      id: m.id,
+      user_id: m.user_id,
+      name: (m.profiles && m.profiles.full_name) || "Member"
+    }));
+  }
+
+  // Funds + their balances
+  const { data: funds, error: fundsErr } = await sb
+    .from("funds")
+    .select("*")
+    .eq("organization_id", state.orgId)
+    .order("created_at", { ascending: true });
+
+  if (fundsErr) {
+    msg(fundsErr.message);
+    return;
+  }
+
+  const { data: fundBalances, error: fbErr } = await sb
+    .from("fund_balances")
+    .select("*")
+    .eq("organization_id", state.orgId);
+
+  if (fbErr) {
+    msg(fbErr.message);
+    return;
+  }
+
+  const balByFund = {};
+  (fundBalances || []).forEach((b) => { balByFund[b.fund_id] = b; });
+
+  state.funds = funds || [];
+  renderFunds(balByFund);
+
+  const createFundForm = $("create-fund-form");
+  if (state.isAuthorized) createFundForm.classList.remove("hidden");
+  else createFundForm.classList.add("hidden");
+
+  // Refresh open fund detail if one is selected
+  if (state.selectedFund) {
+    const stillExists = state.funds.find((f) => f.id === state.selectedFund.id);
+    if (stillExists) {
+      state.selectedFund = stillExists;
+      await loadFundDetail();
+    } else {
+      $("box-fund").classList.add("hidden");
+      state.selectedFund = null;
+    }
+  }
+}
+
+function renderFunds(balByFund) {
+  const list = $("funds-list");
+  if (!state.funds.length) {
+    list.textContent = "No funds yet.";
+    return;
+  }
+  list.innerHTML = "";
+  state.funds.forEach((f) => {
+    const bal = balByFund[f.id] || { balance: 0 };
+    const row = document.createElement("div");
+    row.className = "row";
+
+    const main = document.createElement("div");
+    main.className = "main";
+    main.innerHTML =
+      '<div class="name">' + escapeHtml(f.name) +
+      '<span class="pill ' + (f.status === "active" ? "active" : "inactive") + '">' + f.status + "</span></div>" +
+      '<div class="sub">' + (f.purpose ? escapeHtml(f.purpose) : "No purpose set") + "</div>";
+
+    const amt = document.createElement("div");
+    amt.className = "amount " + (Number(bal.balance) >= 0 ? "in" : "out");
+    amt.textContent = fmt(bal.balance);
+
+    row.appendChild(main);
+    row.appendChild(amt);
+    list.appendChild(row);
+
+    const actions = document.createElement("div");
+    actions.className = "actions";
+
+    const viewBtn = document.createElement("button");
+    viewBtn.className = "secondary";
+    viewBtn.textContent = "View";
+    viewBtn.onclick = () => selectFund(f);
+    actions.appendChild(viewBtn);
+
+    if (state.isAuthorized) {
+      const toggleBtn = document.createElement("button");
+      toggleBtn.className = "secondary";
+      toggleBtn.textContent = f.status === "active" ? "Deactivate" : "Activate";
+      toggleBtn.onclick = () => toggleFundStatus(f);
+      actions.appendChild(toggleBtn);
+    }
+
+    list.appendChild(actions);
+  });
+}
+
+async function toggleFundStatus(fund) {
+  try {
+    const newStatus = fund.status === "active" ? "inactive" : "active";
+    const { error } = await sb.rpc("set_fund_status", { p_fund: fund.id, p_status: newStatus });
+    if (error) throw error;
+    msg("Fund updated.", true);
+    await loadFinance();
+  } catch (e) {
+    msg(e.message);
+  }
+}
+
+$("btn-create-fund").onclick = async () => {
+  const btn = $("btn-create-fund");
+  try {
+    const name = $("fund-name").value.trim();
+    const purpose = $("fund-purpose").value.trim();
+    if (!name) throw new Error("Enter a fund name.");
+    btn.disabled = true;
+    const { error } = await sb.rpc("create_fund", {
+      p_org: state.orgId,
+      p_name: name,
+      p_purpose: purpose || null,
+      p_starts: null,
+      p_ends: null
+    });
+    if (error) throw error;
+    $("fund-name").value = "";
+    $("fund-purpose").value = "";
+    msg("Fund created.", true);
+    await loadFinance();
+  } catch (e) {
+    msg(e.message);
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+// ---------- FUND DETAIL: SCHEDULES + LEDGER ----------
+
+function selectFund(fund) {
+  state.selectedFund = fund;
+  $("box-fund").classList.remove("hidden");
+  loadFundDetail();
+}
+
+$("btn-close-fund").onclick = () => {
+  state.selectedFund = null;
+  $("box-fund").classList.add("hidden");
+};
+
+async function loadFundDetail() {
+  const fund = state.selectedFund;
+  if (!fund) return;
+
+  $("fund-title").textContent = fund.name;
+
+  const { data: fb } = await sb
+    .from("fund_balances")
+    .select("*")
+    .eq("fund_id", fund.id)
+    .maybeSingle();
+  $("fund-balance-amt").textContent = fmt((fb && fb.balance) || 0);
+
+  // Schedules
+  const { data: schedules, error: schedErr } = await sb
+    .from("contribution_schedules")
+    .select("*")
+    .eq("fund_id", fund.id)
+    .order("created_at", { ascending: true });
+
+  if (schedErr) {
+    msg(schedErr.message);
+  } else {
+    renderSchedules(schedules || []);
+  }
+
+  $("create-schedule-form").classList.toggle("hidden", !state.isAuthorized);
+
+  // Ledger
+  const { data: txns, error: txnErr } = await sb
+    .from("transactions")
+    .select("*")
+    .eq("fund_id", fund.id)
+    .order("created_at", { ascending: false });
+
+  if (txnErr) {
+    msg(txnErr.message);
+  } else {
+    renderLedger(txns || []);
+  }
+
+  // Member dropdown for posting
+  const memberSelect = $("txn-member");
+  memberSelect.innerHTML = '<option value="">No specific member</option>';
+  state.members.forEach((m) => {
+    const opt = document.createElement("option");
+    opt.value = m.id;
+    opt.textContent = m.name;
+    memberSelect.appendChild(opt);
+  });
+
+  $("post-txn-form").classList.toggle("hidden", !state.isAuthorized);
+  $("txn-date").value = new Date().toISOString().slice(0, 10);
+}
+
+function renderSchedules(schedules) {
+  const list = $("schedules-list");
+  if (!schedules.length) {
+    list.textContent = "No schedules yet.";
+    return;
+  }
+  list.innerHTML = "";
+  schedules.forEach((s) => {
+    const row = document.createElement("div");
+    row.className = "row";
+    row.innerHTML =
+      '<div class="main"><div class="name">' + s.frequency + '<span class="pill ' +
+      (s.active ? "active" : "inactive") + '">' + (s.active ? "active" : "inactive") + "</span></div></div>" +
+      '<div class="amount">' + fmt(s.amount) + "</div>";
+    list.appendChild(row);
+  });
+}
+
+$("btn-create-schedule").onclick = async () => {
+  const btn = $("btn-create-schedule");
+  try {
+    const frequency = $("sched-frequency").value;
+    const amount = parseFloat($("sched-amount").value);
+    if (!amount || amount <= 0) throw new Error("Enter a valid amount.");
+    btn.disabled = true;
+    const { error } = await sb.rpc("create_schedule", {
+      p_fund: state.selectedFund.id,
+      p_frequency: frequency,
+      p_amount: amount,
+      p_starts: null,
+      p_ends: null
+    });
+    if (error) throw error;
+    $("sched-amount").value = "";
+    msg("Schedule added.", true);
+    await loadFundDetail();
+  } catch (e) {
+    msg(e.message);
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+function renderLedger(txns) {
+  const list = $("ledger-list");
+  if (!txns.length) {
+    list.textContent = "No transactions yet.";
+    return;
+  }
+
+  const reversedIds = new Set(txns.filter((t) => t.reverses_id).map((t) => t.reverses_id));
+  const memberNameById = {};
+  state.members.forEach((m) => { memberNameById[m.id] = m.name; });
+
+  list.innerHTML = "";
+  txns.forEach((t) => {
+    const row = document.createElement("div");
+    row.className = "row";
+
+    let statusText = "Posted";
+    if (t.type === "reversal") statusText = "Reversal";
+    else if (reversedIds.has(t.id)) statusText = "Reversed";
+
+    const memberName = t.member_id ? (memberNameById[t.member_id] || "Member") : "—";
+
+    const main = document.createElement("div");
+    main.className = "main";
+    main.innerHTML =
+      '<div class="name">' + t.type + " · " + memberName + "</div>" +
+      '<div class="sub">' + t.occurred_on + " · " + statusText +
+      (t.purpose ? " · " + escapeHtml(t.purpose) : "") + "</div>";
+
+    const amt = document.createElement("div");
+    amt.className = "amount " + t.direction;
+    amt.textContent = (t.direction === "in" ? "+" : "-") + fmt(t.amount);
+
+    row.appendChild(main);
+    row.appendChild(amt);
+    list.appendChild(row);
+
+    if (state.isAuthorized && t.type !== "reversal" && !reversedIds.has(t.id)) {
+      const actions = document.createElement("div");
+      actions.className = "actions";
+      const revBtn = document.createElement("button");
+      revBtn.className = "danger";
+      revBtn.textContent = "Reverse";
+      revBtn.onclick = () => reverseTxn(t);
+      actions.appendChild(revBtn);
+      list.appendChild(actions);
+    }
+  });
+}
+
+async function reverseTxn(txn) {
+  try {
+    const reason = window.prompt("Reason for reversal:", "Correction");
+    if (reason === null) return; // cancelled
+    const { error } = await sb.rpc("reverse_transaction", {
+      p_txn: txn.id,
+      p_reason: reason || "Correction"
+    });
+    if (error) throw error;
+    msg("Transaction reversed.", true);
+    await loadFinance();
+  } catch (e) {
+    msg(e.message);
+  }
+}
+
+$("btn-post-txn").onclick = async () => {
+  const btn = $("btn-post-txn");
+  try {
+    const type = $("txn-type").value;
+    const direction = $("txn-direction").value;
+    const amount = parseFloat($("txn-amount").value);
+    const date = $("txn-date").value;
+    const memberId = $("txn-member").value || null;
+    const purpose = $("txn-purpose").value.trim();
+
+    if (!amount || amount <= 0) throw new Error("Enter a valid amount.");
+    if (!date) throw new Error("Pick a date.");
+
+    btn.disabled = true;
+
+    // Idempotency key — prevents duplicate posting on double-tap/network retry.
+    const clientRequestId = crypto.randomUUID();
+
+    const { error } = await sb.rpc("post_transaction", {
+      p_org: state.orgId,
+      p_fund: state.selectedFund.id,
+      p_member: memberId,
+      p_type: type,
+      p_direction: direction,
+      p_amount: amount,
+      p_date: date,
+      p_purpose: purpose || null,
+      p_reference: null,
+      p_client_request_id: clientRequestId
+    });
+    if (error) throw error;
+
+    $("txn-amount").value = "";
+    $("txn-purpose").value = "";
+    msg("Transaction posted.", true);
+    await loadFinance();
+  } catch (e) {
+    msg(e.message);
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str == null ? "" : String(str);
+  return div.innerHTML;
+}
+
 refresh().catch((e) => msg(e.message));
 </script>
 </body>
 </html>
+```
