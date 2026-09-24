@@ -1379,10 +1379,22 @@ $("btn-create-invite").onclick = async () => {
       p_org: state.orgId, p_role: role, p_days: days
     });
     if (error) throw error;
-    $("invite-result").classList.remove("hidden");
-    $("invite-result-token").value = token;
-    msg("Invite created — copy the code now, it won't be shown again.", true);
+
+    // Refresh the invites list (and everything else loadAdmin manages) FIRST —
+    // loadAdmin() unconditionally hides #invite-result as part of its own
+    // reset, so showing the result box before this call meant it was hidden
+    // again almost immediately. Do the refresh, then show the result.
     await loadAdmin();
+
+    if (!token) {
+      // The RPC succeeded (no error) but returned no code — do not claim
+      // a code is ready to copy when there isn't one.
+      msg("Invite record was created, but no code was returned. Do not share this invite — check the invitations table/logs before retrying.");
+    } else {
+      $("invite-result").classList.remove("hidden");
+      $("invite-result-token").value = token;
+      msg("Invite created — copy the code now, it won't be shown again.", true);
+    }
   } catch (e) { msg(e.message); } finally { btn.disabled = false; }
 };
 
