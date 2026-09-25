@@ -1,0 +1,3 @@
+# SPA fallback — any path without a real file serves index.html
+# Prevents Netlify "Page not found" on magic-link returns, refreshes, and shared deep links.
+/*    /index.html   200

@@ -1,0 +1,17 @@
+# Novato static host config
+[build]
+  publish = "."
+
+# Single-page app: all routes fall through to index.html
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Optional: force HTTPS (Netlify usually does this already)
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"

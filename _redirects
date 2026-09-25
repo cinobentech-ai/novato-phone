@@ -1,0 +1,2 @@
+# SPA fallback at site root (works when publish dir is repo root)
+/*    /index.html   200
