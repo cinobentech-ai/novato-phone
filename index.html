@@ -4,10 +4,23 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Novato</title>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Temporary bootstrap: load last known-good app while full file is restored -->
+  <script>
+    // Prefer same-origin once app.js is deployed; else fall back to pinned commit on jsDelivr.
+    (function () {
+      var pinned = "https://cdn.jsdelivr.net/gh/cinobentech-ai/novato-phone@a69da0066da9b6ac387e76eaf5c0e08fa1e27d86/index.html";
+      // If this page is already the pinned content path, do nothing.
+      if (location.href.indexOf("a69da006") !== -1) return;
+      // Replace with pinned full app (avoids empty PLACEHOLDER deploy).
+      location.replace(pinned);
+    })();
+  </script>
+  <meta http-equiv="refresh" content="0;url=https://cdn.jsdelivr.net/gh/cinobentech-ai/novato-phone@a69da0066da9b6ac387e76eaf5c0e08fa1e27d86/index.html" />
 </head>
 <body>
-  <h1>Novato</h1>
-  <p>Temporary restore in progress. Reload shortly.</p>
+  <p style="font-family:system-ui;background:#0b1530;color:#eef3ff;padding:20px">
+    Loading Novato… If nothing happens, open
+    <a style="color:#3dd6c6" href="https://cdn.jsdelivr.net/gh/cinobentech-ai/novato-phone@a69da0066da9b6ac387e76eaf5c0e08fa1e27d86/index.html">this link</a>.
+  </p>
 </body>
 </html>
